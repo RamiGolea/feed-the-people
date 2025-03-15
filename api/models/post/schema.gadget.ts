@@ -9,38 +9,32 @@ export const schema: GadgetModel = {
   comment:
     "Represents a user-created post with details such as title, description, price, and status. Used to display user-generated content in the application.",
   fields: {
-    category: { type: "string", storageKey: "6nTJtO9PATMk" },
-    condition: {
+    category: {
       type: "enum",
       acceptMultipleSelections: false,
       acceptUnlistedOptions: false,
-      options: [
-        "New",
-        "Used - Like New",
-        "Used - Good",
-        "Used - Fair",
-      ],
-      storageKey: "md7tUm9lvb7h",
+      options: ["leftovers", "perishables"],
+      storageKey: "6nTJtO9PATMk",
     },
     description: {
       type: "string",
       validations: { required: true },
       storageKey: "WmBlwgE_yplu",
     },
+    foodAllergens: { type: "string", storageKey: "iIYjrGpyMp3w" },
+    goBadDate: {
+      type: "dateTime",
+      includeTime: true,
+      storageKey: "zN56PrSrQljQ",
+    },
     images: { type: "json", storageKey: "tKWoegh-doOY" },
     location: { type: "string", storageKey: "8A0WiNgImDv5" },
-    price: {
-      type: "number",
-      decimals: 2,
-      validations: { required: true },
-      storageKey: "qyt80WFaszzg",
-    },
     status: {
       type: "enum",
       default: "Active",
       acceptMultipleSelections: false,
       acceptUnlistedOptions: false,
-      options: ["Draft", "Active", "Sold", "Archived"],
+      options: ["Draft", "Active", "Archived"],
       validations: { required: true },
       storageKey: "7B1wIQ49px8i",
     },
