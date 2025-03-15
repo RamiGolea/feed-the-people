@@ -16,6 +16,7 @@ import {
   MessageSquare,
   PlusSquare,
   Search,
+  Trophy,
   User,
   X,
 } from "lucide-react";
@@ -104,9 +105,10 @@ const NavBar = ({ user }: { user: any }) => {
 
   const navItems = [
     { to: "/signed-in", icon: <Home className="h-5 w-5" />, label: "Home" },
-    { to: "/messages", icon: <MessageSquare className="h-5 w-5" />, label: "Messages" },
     { to: "/search", icon: <Search className="h-5 w-5" />, label: "Search" },
     { to: "/post", icon: <PlusSquare className="h-5 w-5" />, label: "Create" },
+    { to: "/messages", icon: <MessageSquare className="h-5 w-5" />, label: "Messages" },
+    { to: "/leaderboard", icon: <Trophy className="h-5 w-5" />, label: "Leaderboard" },
   ];
 
   const isActive = (path: string) => location.pathname === path;
@@ -127,7 +129,7 @@ const NavBar = ({ user }: { user: any }) => {
           </div>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center space-x-1">
+          <nav className="hidden md:flex items-center space-x-1 flex-grow justify-end mr-4">
             {navItems.map((item) => (
               <Link
                 key={item.to}
@@ -147,11 +149,16 @@ const NavBar = ({ user }: { user: any }) => {
             </Button>
           </nav>
 
-          <div className="flex items-center">
-            {/* Mobile menu button */}
+          {/* User Menu - Always visible */}
+          <div className="hidden md:block">
+            <UserMenu user={user} />
+          </div>
+
+          {/* Mobile Menu Button */}
+          <div className="md:hidden flex items-center">
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden rounded-full p-2 hover:bg-accent"
+              className="rounded-full p-2 hover:bg-accent"
             >
               {mobileMenuOpen ? (
                 <X className="h-6 w-6" />
@@ -159,8 +166,7 @@ const NavBar = ({ user }: { user: any }) => {
                 <Menu className="h-6 w-6" />
               )}
             </button>
-
-            {/* User Menu */}
+            
             <div className="ml-4">
               <UserMenu user={user} />
             </div>
@@ -213,7 +219,7 @@ export default function ({ loaderData }: Route.ComponentProps) {
     <div className="min-h-screen flex flex-col">
       <NavBar user={user} />
       <main className="flex-1 overflow-y-auto">
-        <div className="container mx-auto px-4 py-6 md:py-8">
+        <div className="container mx-auto px-4 pb-6 md:pb-8">
           <Outlet
             context={{ ...rootOutletContext, user } as AuthOutletContext}
           />
