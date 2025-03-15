@@ -13,7 +13,9 @@ type Params = {
   "/verify-email": {};
   "/sign-in": {};
   "/sign-up": {};
-  "/post-detail": {};
+  "/post-detail/:id": {
+    "id": string;
+  };
   "/signed-in": {};
   "/messages": {};
   "/messages/new": {};

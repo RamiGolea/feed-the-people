@@ -129,12 +129,9 @@ export default function NewMessage() {
       // Send the message
       const result = await api.message.create(messagePayload);
       
-      if (result.success) {
-        setSuccess(true);
-        form.reset();
-      } else {
-        setError("Failed to send message: " + result.errors.map(e => e.message).join(", "));
-      }
+      // If we get here, the message was created successfully
+      setSuccess(true);
+      form.reset();
     } catch (e: any) {
       console.error("Error sending message:", e);
       setError("Failed to send message: " + (e.message || "Unknown error"));

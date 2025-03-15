@@ -1,7 +1,7 @@
 import { useParams } from "react-router";
-import { useFindOne, useFindMany, useAction } from "@gadgetinc/react";
+import { useFindOne, useFindMany, useAction, useSession } from "@gadgetinc/react";
 import { api } from "../api";
-import { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,10 +10,10 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { AutoForm, AutoInput, AutoSubmit, AutoHiddenInput } from "../components/auto";
 
 export default function PostDetail() {
   const { id } = useParams();
-  const [messageContent, setMessageContent] = useState("");
 
   // Fetch post details
   const [{ data: post, error: postError, fetching: fetchingPost }, refreshPost] = useFindOne(api.post, id!, {
@@ -37,14 +37,8 @@ export default function PostDetail() {
   });
 
   // Get current user session
-  const [{ data: session, error: sessionError, fetching: fetchingSession }] = useFindOne(api.session, "current", {
-    select: {
-      user: {
-        id: true,
-      },
-    },
-  });
-  
+  const session = useSession(api);
+
   const currentUserId = session?.user?.id;
   const postOwnerId = post?.user?.id;
 
@@ -81,30 +75,15 @@ export default function PostDetail() {
     },
   });
 
-  // Send message action
-  const [{ fetching: sendingMessage, error: sendMessageError }, sendMessage] = useAction(api.message.create);
 
-  const handleSendMessage = async () => {
-    if (!messageContent.trim() || !currentUserId || !postOwnerId || !id) return;
-    
-    await sendMessage({
-      content: messageContent,
-      post: { _link: id },
-      recipient: { _link: postOwnerId },
-      sender: { _link: currentUserId },
-      status: "active",
-    });
-    
-    setMessageContent("");
-    refreshMessages();
-  };
+
 
   // Mark messages as read when viewed
   useEffect(() => {
     if (messages && currentUserId) {
-      const unreadMessages = messages.filter(msg => 
+      const unreadMessages = messages.filter(msg =>
         msg.senderId !== currentUserId && !msg.read);
-      
+
       // Update unread messages to read (this would be ideal but is currently skipped as update permissions aren't set)
       // This would require setting up proper permissions for the message.update action
     }
@@ -196,9 +175,9 @@ export default function PostDetail() {
           <div>
             <p className="text-lg">{post.description}</p>
           </div>
-          
+
           <Separator />
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {post.location && (
               <div>
@@ -206,7 +185,7 @@ export default function PostDetail() {
                 <p>{post.location}</p>
               </div>
             )}
-            
+
             {post.goBadDate && (
               <div>
                 <h3 className="font-medium text-sm text-gray-500">Goes Bad On</h3>
@@ -214,7 +193,7 @@ export default function PostDetail() {
               </div>
             )}
           </div>
-          
+
           {post.foodAllergens && (
             <div>
               <h3 className="font-medium text-sm text-gray-500">Allergen Information</h3>
@@ -316,7 +295,7 @@ export default function PostDetail() {
           <CardTitle>Message {post.user?.firstName || "Owner"}</CardTitle>
           <CardDescription>Chat about this food item</CardDescription>
         </CardHeader>
-        
+
         <CardContent>
           <ScrollArea className="h-[400px] pr-4">
             {fetchingMessages && !messages ? (
@@ -336,17 +315,15 @@ export default function PostDetail() {
                     key={message.id}
                     className={`flex ${message.senderId === currentUserId ? 'justify-end' : 'justify-start'}`}
                   >
-                    <div 
-                      className={`rounded-lg p-3 max-w-[80%] break-words ${
-                        message.senderId === currentUserId 
-                          ? 'bg-green-600 text-white' 
-                          : 'bg-gray-100 text-gray-900'
-                      }`}
+                    <div
+                      className={`rounded-lg p-3 max-w-[80%] break-words ${message.senderId === currentUserId
+                        ? 'bg-green-600 text-white'
+                        : 'bg-gray-100 text-gray-900'
+                        }`}
                     >
                       {message.content}
-                      <div className={`text-xs mt-1 ${
-                        message.senderId === currentUserId ? 'text-green-100' : 'text-gray-500'
-                      }`}>
+                      <div className={`text-xs mt-1 ${message.senderId === currentUserId ? 'text-green-100' : 'text-gray-500'
+                        }`}>
                         {formatDate(message.createdAt)}
                       </div>
                     </div>
@@ -360,30 +337,19 @@ export default function PostDetail() {
             )}
           </ScrollArea>
         </CardContent>
-        
-        <CardFooter>
-          <div className="flex w-full items-end gap-2">
-            <Textarea
-              value={messageContent}
-              onChange={(e) => setMessageContent(e.target.value)}
-              placeholder="Type your message here..."
-              className="flex-1 min-h-[5rem]"
-              disabled={sendingMessage || !currentUserId || !postOwnerId}
-            />
-            <Button 
-              onClick={handleSendMessage} 
-              disabled={sendingMessage || !messageContent.trim() || !currentUserId || !postOwnerId}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              Send
-            </Button>
-          </div>
-          {sendMessageError && (
-            <p className="text-red-500 text-sm mt-2">
-              Error sending message. Please try again.
-            </p>
-          )}
-        </CardFooter>
+      <CardFooter>
+        <AutoForm action={api.message.create}
+          defaultValues={{
+            sender: '2',
+            recipient: '13',
+            postId: id,
+          }}>
+          <AutoInput field="content" label="message" />
+          <AutoSubmit >
+            Send Message
+          </AutoSubmit>
+        </AutoForm>
+      </CardFooter>
       </Card>
     </div>
   );

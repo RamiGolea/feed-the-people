@@ -1,0 +1,4 @@
+filter ($session: Session, $user: User) on Message [
+  where senderId == $user.id
+]
+# structured filters: [{"type":"field_values_filter","field":"senderId","values":["{{user.id}}"]}]
