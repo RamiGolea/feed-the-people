@@ -13,18 +13,28 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { CalendarIcon, ArrowUp } from "lucide-react";
 import { format } from "date-fns";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function SearchPage() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
 
   const [userScores, setUserScores] = useState<Record<string, number>>({});
   
-  const [{ data, fetching, error }] = useFindMany(api.post, {
-    filter: {
-      status: {
-        equals: "Active"
-      }
+  // Build filter object based on selected category
+  const filter = {
+    status: {
+      equals: "Active"
     },
+    ...(categoryFilter !== "all" && {
+      category: {
+        equals: categoryFilter
+      }
+    })
+  };
+  
+  const [{ data, fetching, error }] = useFindMany(api.post, {
+    filter,
     search: searchTerm || undefined, // Only apply search if there's a term
     sort: { createdAt: "Descending" },
     select: {
@@ -105,6 +115,36 @@ export default function SearchPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-6">Find Food</h1>
+      
+      <div className="mb-4">
+        <Tabs 
+          defaultValue="all" 
+          value={categoryFilter}
+          onValueChange={setCategoryFilter}
+          className="w-full"
+        >
+          <TabsList className="grid w-full grid-cols-3 bg-green-50">
+            <TabsTrigger 
+              value="all" 
+              className="data-[state=active]:bg-green-500 data-[state=active]:text-white"
+            >
+              All
+            </TabsTrigger>
+            <TabsTrigger 
+              value="perishables"
+              className="data-[state=active]:bg-green-500 data-[state=active]:text-white"
+            >
+              Perishables
+            </TabsTrigger>
+            <TabsTrigger 
+              value="leftovers"
+              className="data-[state=active]:bg-green-500 data-[state=active]:text-white"
+            >
+              Leftovers
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
       
       <div className="mb-8">
         <div className="flex gap-2">

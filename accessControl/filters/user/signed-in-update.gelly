@@ -1,0 +1,5 @@
+# Allow signed-in users to update their own profile
+filter ($session: Session, $user: User) on User [
+  where $user.id == $session.user.id
+]
+# structured filters: [{"type":"tenancy_read_filter","field":"id"}]

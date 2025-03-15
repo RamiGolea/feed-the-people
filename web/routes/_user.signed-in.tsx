@@ -23,7 +23,7 @@ export default function () {
           <Link to="/search" className="h-full">
             <Card className="flex h-full flex-col items-center justify-center p-10 transition-all hover:bg-green-500">
               <Search className="mb-4 h-16 w-16 text-black" />
-              <h2 className="text-2xl font-bold">Search</h2>
+              <h2 className="text-2xl font-bold">Find</h2>
               <p className="mt-2 text-center text-muted-foreground">
                 Find content from other users
               </p>
