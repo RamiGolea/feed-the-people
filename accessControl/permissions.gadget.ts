@@ -16,6 +16,16 @@ export const permissions: GadgetPermissions = {
         action: true,
       },
       models: {
+        post: {
+          read: {
+            filter: "accessControl/filters/post/signed-in-read.gelly",
+          },
+          actions: {
+            create: true,
+            delete: true,
+            update: true,
+          },
+        },
         user: {
           read: {
             filter: "accessControl/filters/user/tenant.gelly",
@@ -34,6 +44,9 @@ export const permissions: GadgetPermissions = {
     unauthenticated: {
       storageKey: "unauthenticated",
       models: {
+        post: {
+          read: true,
+        },
         user: {
           actions: {
             resetPassword: true,
