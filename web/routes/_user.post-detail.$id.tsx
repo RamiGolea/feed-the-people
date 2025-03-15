@@ -200,23 +200,92 @@ export default function PostDetail() {
               <p>{post.foodAllergens}</p>
             </div>
           )}
-
-          {post.images && typeof post.images === 'object' && Array.isArray(post.images) && post.images.length > 0 && (
-            <div className="mt-4">
-              <h3 className="font-medium text-sm text-gray-500 mb-2">Images</h3>
-              <div className="grid grid-cols-2 gap-2">
-                {post.images.map((image, index) => (
-                  <div key={index} className="relative aspect-square overflow-hidden rounded-md">
-                    <img
-                      src={image.url || image}
-                      alt={`Food image ${index + 1}`}
-                      className="object-cover w-full h-full"
-                    />
+          
+          {(() => {
+            // Helper function to normalize image data
+            const getImageArray = () => {
+              try {
+                if (!post.images) return null;
+        
+                // If images is a string (JSON), try to parse it
+                if (typeof post.images === 'string') {
+                  try {
+                    const parsed = JSON.parse(post.images);
+                    return Array.isArray(parsed) ? parsed : [parsed];
+                  } catch {
+                    // If parsing fails, treat it as a single image URL
+                    return [post.images];
+                  }
+                }
+        
+                // If images is already an array, use it directly
+                if (Array.isArray(post.images)) {
+                  return post.images.length > 0 ? post.images : null;
+                }
+        
+                // If images is an object but not an array (like a single image object)
+                if (typeof post.images === 'object') {
+                  return [post.images];
+                }
+        
+                return null;
+              } catch (error) {
+                console.error("Error processing images:", error);
+                return null;
+              }
+            };
+    
+            const imageArray = getImageArray();
+    
+            if (!imageArray) {
+              return (
+                <div className="mt-4">
+                  <h3 className="font-medium text-sm text-gray-500 mb-2">Images</h3>
+                  <div className="p-4 bg-gray-100 rounded-md text-center text-gray-500">
+                    No images available
                   </div>
-                ))}
+                </div>
+              );
+            }
+    
+            return (
+              <div className="mt-4">
+                <h3 className="font-medium text-sm text-gray-500 mb-2">Images</h3>
+                <div className="grid grid-cols-2 gap-2">
+                  {imageArray.map((image, index) => (
+                    <div key={index} className="relative aspect-square overflow-hidden rounded-md bg-gray-100">
+                      {(() => {
+                        try {
+                          // Handle different image formats
+                          const imgSrc = typeof image === 'string' 
+                            ? image 
+                            : image.url || image.src || image.source || null;
+                  
+                          if (!imgSrc) {
+                            return <div className="flex items-center justify-center w-full h-full text-gray-500">Invalid image</div>;
+                          }
+                  
+                          return (
+                            <img 
+                              src={imgSrc} 
+                              alt={`Food image ${index + 1}`}
+                              className="object-cover w-full h-full"
+                              onError={(e) => {
+                                e.currentTarget.onerror = null;
+                                e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23f3f4f6'/%3E%3Ctext x='50' y='50' font-family='Arial' font-size='12' text-anchor='middle' dominant-baseline='middle' fill='%236b7280'%3EImage Error%3C/text%3E%3C/svg%3E";
+                              }}
+                            />
+                          );
+                        } catch (error) {
+                          return <div className="flex items-center justify-center w-full h-full text-gray-500">Error</div>;
+                        }
+                      })()}
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
         </CardContent>
       </Card>
 
