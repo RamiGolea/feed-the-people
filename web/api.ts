@@ -1,5 +1,5 @@
 // Sets up the API client for interacting with your backend.
-// For your API reference, visit: https://docs.gadget.dev/api/cuhack6-goats
-import { Client } from "@gadget-client/cuhack6-goats";
+// For your API reference, visit: https://docs.gadget.dev/api/feed-the-people
+import { Client } from "@gadget-client/feed-the-people";
 
 export const api = new Client();
