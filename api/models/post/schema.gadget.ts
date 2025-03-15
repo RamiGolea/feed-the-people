@@ -45,7 +45,6 @@ export const schema: GadgetModel = {
     },
     user: {
       type: "belongsTo",
-      validations: { required: true },
       parent: { model: "user" },
       storageKey: "g4gdMy6rQQ-P",
     },
