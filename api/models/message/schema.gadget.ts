@@ -8,6 +8,7 @@ export const schema: GadgetModel = {
   storageKey: "Z-8Rc4CRTe9-",
   fields: {
     content: { type: "string", storageKey: "Bzs6uXrBg9Xz" },
+    recipient: { type: "string", storageKey: "H-0VXt9zQiTe" },
     user: {
       type: "belongsTo",
       parent: { model: "user" },
