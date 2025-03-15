@@ -20,7 +20,13 @@ export const permissions: GadgetPermissions = {
           read: {
             filter: "accessControl/filters/post/signed-in-read.gelly",
           },
-        },  
+          actions: {
+            create: {
+              filter:
+                "accessControl/filters/post/signed-in-read.gelly",
+            },
+          },
+        },
         shareScore: {
           read: true,
           actions: {

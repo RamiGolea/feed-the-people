@@ -25,14 +25,20 @@ import {
   FormMessage 
 } from "@/components/ui/form";
 import { z } from "zod";
-import { useForm } from "react-hook-form";
+import { useForm, ControllerRenderProps } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { CalendarIcon } from "lucide-react";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 const PostCreationPage = () => {
   const navigate = useNavigate();
   const [images, setImages] = useState<File[]>([]);
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [goBadDate, setGoBadDate] = useState<Date | undefined>(undefined);
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
@@ -70,10 +76,10 @@ const PostCreationPage = () => {
   const formSchema = z.object({
     title: z.string().min(1, "Title is required"),
     description: z.string().min(10, "Description must be at least 10 characters"),
-    price: z.number().positive("Price must be positive"),
-    condition: z.enum(["New", "Used - Like New", "Used - Good", "Used - Fair"]),
     location: z.string().optional(),
-    category: z.string().optional(),
+    category: z.enum(["leftovers", "perishables"]),
+    foodAllergens: z.string().optional(),
+    goBadDate: z.date().optional(),
   });
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -81,10 +87,10 @@ const PostCreationPage = () => {
     defaultValues: {
       title: "",
       description: "",
-      price: 0,
-      condition: "New",
       location: "",
-      category: "",
+      category: "leftovers",
+      foodAllergens: "",
+      goBadDate: undefined,
     },
   });
 
@@ -93,10 +99,10 @@ const PostCreationPage = () => {
       const result = await api.post.create({
         title: values.title,
         description: values.description,
-        price: values.price,
-        condition: values.condition,
         location: values.location || null,
-        category: values.category || null,
+        category: values.category,
+        foodAllergens: values.foodAllergens || null,
+        goBadDate: values.goBadDate || null,
         images: uploadedImages.length > 0 ? JSON.stringify(uploadedImages) : null,
         status: "Active",
       });
@@ -126,7 +132,7 @@ const PostCreationPage = () => {
               <FormField
                 control={form.control}
                 name="title"
-                render={({ field }) => (
+                render={({ field }: { field: React.InputHTMLAttributes<HTMLInputElement> & { onChange: (...event: any[]) => void; onBlur: () => void; value: any; name: string; ref: React.RefCallback<HTMLInputElement>; } }) => (
                   <FormItem>
                     <FormLabel>Title</FormLabel>
                     <FormControl>
@@ -140,7 +146,7 @@ const PostCreationPage = () => {
               <FormField
                 control={form.control}
                 name="description"
-                render={({ field }) => (
+                render={({ field }: { field: React.InputHTMLAttributes<HTMLTextAreaElement> & { onChange: (...event: any[]) => void; onBlur: () => void; value: any; name: string; ref: React.RefCallback<HTMLTextAreaElement>; } }) => (
                   <FormItem>
                     <FormLabel>Description</FormLabel>
                     <FormControl>
@@ -158,58 +164,8 @@ const PostCreationPage = () => {
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
-                  name="price"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Price</FormLabel>
-                      <FormControl>
-                        <Input 
-                          type="number" 
-                          min="0" 
-                          step="0.01"
-                          placeholder="0.00" 
-                          onChange={(e) => field.onChange(parseFloat(e.target.value))}
-                          value={field.value}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="condition"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Condition</FormLabel>
-                      <Select 
-                        onValueChange={field.onChange} 
-                        defaultValue={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select condition" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="New">New</SelectItem>
-                          <SelectItem value="Used - Like New">Used - Like New</SelectItem>
-                          <SelectItem value="Used - Good">Used - Good</SelectItem>
-                          <SelectItem value="Used - Fair">Used - Fair</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
                   name="location"
-                  render={({ field }) => (
+                  render={({ field }: { field: React.InputHTMLAttributes<HTMLInputElement> & { onChange: (...event: any[]) => void; onBlur: () => void; value: any; name: string; ref: React.RefCallback<HTMLInputElement>; } }) => (
                     <FormItem>
                       <FormLabel>Location (Optional)</FormLabel>
                       <FormControl>
@@ -223,12 +179,81 @@ const PostCreationPage = () => {
                 <FormField
                   control={form.control}
                   name="category"
-                  render={({ field }) => (
+                  render={({ field }: { field: { onChange: (...event: any[]) => void; onBlur: () => void; value: any; name: string; ref: React.RefCallback<HTMLSelectElement>; } }) => (
                     <FormItem>
-                      <FormLabel>Category (Optional)</FormLabel>
+                      <FormLabel>Category</FormLabel>
+                      <Select 
+                        onValueChange={field.onChange} 
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a category" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="leftovers">Leftovers</SelectItem>
+                          <SelectItem value="perishables">Perishables</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="foodAllergens"
+                  render={({ field }: { field: React.InputHTMLAttributes<HTMLInputElement> & { onChange: (...event: any[]) => void; onBlur: () => void; value: any; name: string; ref: React.RefCallback<HTMLInputElement>; } }) => (
+                    <FormItem>
+                      <FormLabel>Food Allergens (Optional)</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g. Clothing, Electronics" {...field} />
+                        <Input placeholder="e.g. Nuts, Dairy, Gluten" {...field} />
                       </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="goBadDate"
+                  render={({ field }: { field: { onChange: (date: Date | undefined) => void; onBlur: () => void; value: Date | undefined; name: string; ref: React.RefCallback<HTMLButtonElement>; } }) => (
+                    <FormItem className="flex flex-col">
+                      <FormLabel>Goes Bad Date (Optional)</FormLabel>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              variant="outline"
+                              className={cn(
+                                "w-full pl-3 text-left font-normal",
+                                !field.value && "text-muted-foreground"
+                              )}
+                            >
+                              {field.value ? (
+                                format(field.value, "PPP")
+                              ) : (
+                                <span>Pick a date</span>
+                              )}
+                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={field.value}
+                            onSelect={field.onChange}
+                            disabled={(date) =>
+                              date < new Date(new Date().setHours(0, 0, 0, 0))
+                            }
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
                       <FormMessage />
                     </FormItem>
                   )}
