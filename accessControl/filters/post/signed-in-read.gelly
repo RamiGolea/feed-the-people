@@ -1,4 +1,4 @@
 filter ($session: Session, $user: User) on Post [
-  where userId == $user.id
+  where status == "Active"
 ]
-# structured filters: [{"type":"tenancy_read_filter","field":"user"}]
+# structured filters: [{"type":"field_values_filter","field":"status","values":["Active"]}]

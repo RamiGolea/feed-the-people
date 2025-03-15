@@ -1,3 +1,4 @@
+# This filter is intentionally unrestricted to allow access to all User records
 filter ($session: Session) on User [
-  where id == $session.userId
+  where true
 ]
