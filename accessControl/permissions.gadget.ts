@@ -16,6 +16,10 @@ export const permissions: GadgetPermissions = {
         action: true,
       },
       models: {
+        post: {
+          read: {
+            filter: "accessControl/filters/post/signed-in-read.gelly",
+          },
         shareScore: {
           read: true,
           actions: {
@@ -42,6 +46,9 @@ export const permissions: GadgetPermissions = {
     unauthenticated: {
       storageKey: "unauthenticated",
       models: {
+        post: {
+          read: true,
+        },
         user: {
           actions: {
             resetPassword: true,

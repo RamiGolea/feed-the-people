@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Pencil } from "lucide-react";
-import { useOutletContext } from "react-router";
+import { Pencil, PlusCircle, Search } from "lucide-react";
+import { useOutletContext, Link } from "react-router";
 import type { AuthOutletContext } from "./_user";
 
 export default function () {
@@ -43,6 +43,27 @@ export default function () {
               />
             </div>
           </Card>
+        </div>
+        
+        <div className="grid grid-cols-2 gap-6">
+          <Link to="/post" className="h-full">
+            <Card className="flex h-full flex-col items-center justify-center p-10 transition-all hover:bg-muted/50">
+              <PlusCircle className="mb-4 h-16 w-16 text-primary" />
+              <h2 className="text-2xl font-bold">Post</h2>
+              <p className="mt-2 text-center text-muted-foreground">
+                Create a new post to share with others
+              </p>
+            </Card>
+          </Link>
+          <Link to="/search" className="h-full">
+            <Card className="flex h-full flex-col items-center justify-center p-10 transition-all hover:bg-muted/50">
+              <Search className="mb-4 h-16 w-16 text-primary" />
+              <h2 className="text-2xl font-bold">Search</h2>
+              <p className="mt-2 text-center text-muted-foreground">
+                Find content from other users
+              </p>
+            </Card>
+          </Link>
         </div>
         <Card className="p-6">
           <div className="space-y-6">

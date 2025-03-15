@@ -15,4 +15,6 @@ type Params = {
   "/sign-up": {};
   "/signed-in": {};
   "/profile": {};
+  "/search": {};
+  "/post": {};
 };
