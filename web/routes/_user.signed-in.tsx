@@ -10,45 +10,10 @@ export default function () {
   return (
     <div className="container mx-auto p-6">
       <div className="grid gap-6">
-        <div>
-          <Card className="overflow-hidden">
-            <div className="flex items-start justify-between p-6">
-              <div className="space-y-4">
-                <h2 className="text-2xl font-bold">You are now signed in</h2>
-                <div className="space-y-2">
-                  <p className="text-base">
-                    You made it into <b>{gadgetConfig.env.GADGET_APP}</b>!
-                  </p>
-                  <p className="text-base">
-                    Now, you can start building your app&apos;s signed in area.
-                  </p>
-                </div>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    window.open(
-                      "/edit/files/web/routes/_user.signed-in.tsx",
-                      "_blank"
-                    );
-                  }}
-                >
-                  <Pencil className="mr-2 h-4 w-4" />
-                  Edit this page
-                </Button>
-              </div>
-              <img
-                src="https://assets.gadget.dev/assets/default-app-assets/react-logo.svg"
-                className="app-logo h-24 w-24"
-                alt="logo"
-              />
-            </div>
-          </Card>
-        </div>
-        
         <div className="grid grid-cols-2 gap-6">
           <Link to="/post" className="h-full">
-            <Card className="flex h-full flex-col items-center justify-center p-10 transition-all hover:bg-muted/50">
-              <PlusCircle className="mb-4 h-16 w-16 text-primary" />
+            <Card className="flex h-full flex-col items-center justify-center p-10 transition-all hover:bg-green-500">
+              <PlusCircle className="mb-4 h-16 w-16 text-black" />
               <h2 className="text-2xl font-bold">Post</h2>
               <p className="mt-2 text-center text-muted-foreground">
                 Create a new post to share with others
@@ -56,8 +21,8 @@ export default function () {
             </Card>
           </Link>
           <Link to="/search" className="h-full">
-            <Card className="flex h-full flex-col items-center justify-center p-10 transition-all hover:bg-muted/50">
-              <Search className="mb-4 h-16 w-16 text-primary" />
+            <Card className="flex h-full flex-col items-center justify-center p-10 transition-all hover:bg-green-500">
+              <Search className="mb-4 h-16 w-16 text-black" />
               <h2 className="text-2xl font-bold">Search</h2>
               <p className="mt-2 text-center text-muted-foreground">
                 Find content from other users

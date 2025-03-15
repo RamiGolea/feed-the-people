@@ -140,7 +140,7 @@ export default function SearchPage() {
       <div className="flex flex-col gap-4">
         {data?.map((post) => (
           <Link 
-            to={`/post?id=${post.id}`} 
+            to={`/post-detail/${post.id}`} 
             key={post.id}
             className="w-full"
           >
