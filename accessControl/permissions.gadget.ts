@@ -35,6 +35,14 @@ export const permissions: GadgetPermissions = {
               filter:
                 "accessControl/filters/post/signed-in-read.gelly",
             },
+            delete: {
+              filter:
+                "accessControl/filters/post/signed-in-delete.gelly",
+            },
+            update: {
+              filter:
+                "accessControl/filters/post/signed-in-update.gelly",
+            },
           },
         },
         shareScore: {
