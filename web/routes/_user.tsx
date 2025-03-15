@@ -1,4 +1,5 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -7,7 +8,17 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Toaster } from "@/components/ui/sonner";
 import { useSignOut } from "@gadgetinc/react";
-import { Home, LogOut, Menu, User } from "lucide-react";
+import {
+  Bell,
+  Home,
+  LogOut,
+  Menu,
+  MessageSquare,
+  PlusSquare,
+  Search,
+  User,
+  X,
+} from "lucide-react";
 import { useState } from "react";
 import {
   Link,
@@ -62,7 +73,7 @@ const UserMenu = ({ user }: { user: any }) => {
               <AvatarFallback>{getInitials()}</AvatarFallback>
             )}
           </Avatar>
-          <span className="text-sm font-medium">
+          <span className="text-sm font-medium md:inline hidden">
             {user.firstName ?? user.email}
           </span>
         </button>
@@ -87,67 +98,110 @@ const UserMenu = ({ user }: { user: any }) => {
   );
 };
 
-const SideBar = () => {
+const NavBar = ({ user }: { user: any }) => {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
 
-  return (
-    <div className="flex flex-col flex-grow bg-background border-r h-full">
-      <div className="h-16 flex items-center px-6 border-b">
-        <Link to="/" className="flex items-center">
-          <img
-            src="/api/assets/autologo?background=dark"
-            alt="App name"
-            className="h-8 w-auto"
-          />
-        </Link>
-      </div>
-      <nav className="flex-1 px-4 py-4 space-y-1">
-        <Link
-          to="/signed-in"
-          className={`flex items-center px-4 py-2 text-sm rounded-md transition-colors
-      ${
-        location.pathname === "/signed-in"
-          ? "bg-accent text-accent-foreground"
-          : "hover:bg-accent hover:text-accent-foreground"
-      }`}
-        >
-          <Home className="mr-3 h-4 w-4" />
-          Home
-        </Link>
-      </nav>
-    </div>
-  );
-};
+  const navItems = [
+    { to: "/signed-in", icon: <Home className="h-5 w-5" />, label: "Home" },
+    { to: "/messages", icon: <MessageSquare className="h-5 w-5" />, label: "Messages" },
+    { to: "/search", icon: <Search className="h-5 w-5" />, label: "Search" },
+    { to: "/post", icon: <PlusSquare className="h-5 w-5" />, label: "Create" },
+  ];
 
-const SideBarMenuButtonDrawer = () => {
-  const [isOpen, setIsOpen] = useState(false);
+  const isActive = (path: string) => location.pathname === path;
 
   return (
-    <div
-      className="md:hidden" // Only show on slim screen
-    >
-      <button
-        className="flex items-center rounded-full hover:bg-accent p-2"
-        onClick={() => setIsOpen(!isOpen)}
-      >
-        <Menu className="h-6 w-6" />
-      </button>
-      <div
-        className={`fixed inset-y-0 left-0 w-64 transform transition-transform duration-200 ease-in-out ${
-          isOpen ? "translate-x-0" : "-translate-x-full"
-        } bg-background shadow-lg z-20`}
-      >
-        <SideBar />
-      </div>
+    <header className="sticky top-0 z-10 bg-background border-b">
+      <div className="container mx-auto px-4">
+        <div className="flex h-16 items-center justify-between">
+          {/* Logo */}
+          <div className="flex items-center">
+            <Link to="/" className="flex items-center">
+              <img
+                src="/api/assets/autologo?background=dark"
+                alt="App name"
+                className="h-8 w-auto"
+              />
+            </Link>
+          </div>
 
-      {isOpen && (
-        // Background opacity cover
+          {/* Desktop Navigation */}
+          <nav className="hidden md:flex items-center space-x-1">
+            {navItems.map((item) => (
+              <Link
+                key={item.to}
+                to={item.to}
+                className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  isActive(item.to)
+                    ? "bg-accent text-accent-foreground"
+                    : "hover:bg-accent hover:text-accent-foreground"
+                }`}
+              >
+                {item.icon}
+                <span className="ml-2">{item.label}</span>
+              </Link>
+            ))}
+            <Button variant="ghost" size="icon" className="rounded-full">
+              <Bell className="h-5 w-5" />
+            </Button>
+          </nav>
+
+          <div className="flex items-center">
+            {/* Mobile menu button */}
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="md:hidden rounded-full p-2 hover:bg-accent"
+            >
+              {mobileMenuOpen ? (
+                <X className="h-6 w-6" />
+              ) : (
+                <Menu className="h-6 w-6" />
+              )}
+            </button>
+
+            {/* User Menu */}
+            <div className="ml-4">
+              <UserMenu user={user} />
+            </div>
+          </div>
+        </div>
+
+        {/* Mobile Navigation */}
         <div
-          onClick={() => setIsOpen(false)}
-          className="fixed inset-0 bg-black/30 z-10"
-        />
-      )}
-    </div>
+          className={`md:hidden absolute left-0 right-0 bg-background border-b shadow-lg transition-transform duration-200 ease-in-out z-20 ${
+            mobileMenuOpen ? "transform translate-y-0" : "transform -translate-y-full h-0 overflow-hidden"
+          }`}
+        >
+          <div className="px-2 pt-2 pb-3 space-y-1">
+            {navItems.map((item) => (
+              <Link
+                key={item.to}
+                to={item.to}
+                onClick={() => setMobileMenuOpen(false)}
+                className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  isActive(item.to)
+                    ? "bg-accent text-accent-foreground"
+                    : "hover:bg-accent hover:text-accent-foreground"
+                }`}
+              >
+                {item.icon}
+                <span className="ml-2">{item.label}</span>
+              </Link>
+            ))}
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="flex items-center w-full justify-start px-3 py-2 rounded-md text-sm font-medium"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <Bell className="h-5 w-5 mr-2" />
+              Notifications
+            </Button>
+          </div>
+        </div>
+      </div>
+    </header>
   );
 };
 
@@ -156,26 +210,16 @@ export default function ({ loaderData }: Route.ComponentProps) {
   const rootOutletContext = useOutletContext<RootOutletContext>();
 
   return (
-    <div className="min-h-screen flex">
-      <div className="hidden md:flex w-64 flex-col fixed inset-y-0">
-        <SideBar />
-      </div>
-      <div className="flex-1 flex flex-col md:pl-64">
-        <header className="h-16 flex items-center justify-between px-6 border-b bg-background">
-          <SideBarMenuButtonDrawer />
-          <div className="ml-auto">
-            <UserMenu user={user} />
-          </div>
-        </header>
-        <main className="flex-1 overflow-y-auto">
-          <div className="container mx-auto px-6 py-8">
-            <Outlet
-              context={{ ...rootOutletContext, user } as AuthOutletContext}
-            />
-            <Toaster richColors />
-          </div>
-        </main>
-      </div>
+    <div className="min-h-screen flex flex-col">
+      <NavBar user={user} />
+      <main className="flex-1 overflow-y-auto">
+        <div className="container mx-auto px-4 py-6 md:py-8">
+          <Outlet
+            context={{ ...rootOutletContext, user } as AuthOutletContext}
+          />
+          <Toaster richColors />
+        </div>
+      </main>
     </div>
   );
 }
