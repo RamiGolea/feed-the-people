@@ -7,6 +7,12 @@ export const schema: GadgetModel = {
   type: "gadget/model-schema/v1",
   storageKey: "YfhwtKQHsIeJ",
   fields: {
+    allergies: { type: "string", storageKey: "nw-YHL8VSlEC" },
+    bio: { type: "string", storageKey: "9uLLTVUleVML" },
+    dietaryPreferences: {
+      type: "string",
+      storageKey: "zFFREgItrvYl",
+    },
     email: {
       type: "email",
       validations: { required: true, unique: true },
