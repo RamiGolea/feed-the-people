@@ -170,6 +170,7 @@ export default function PostDetail() {
             </Badge>
           </div>
           <CardDescription>Posted by {post.user?.firstName} {post.user?.lastName}</CardDescription>
+          <CardDescription className="mt-1 text-sm text-gray-500">Owner ID: {post.user?.id}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
@@ -200,13 +201,13 @@ export default function PostDetail() {
               <p>{post.foodAllergens}</p>
             </div>
           )}
-          
+
           {(() => {
             // Helper function to normalize image data
             const getImageArray = () => {
               try {
                 if (!post.images) return null;
-        
+
                 // If images is a string (JSON), try to parse it
                 if (typeof post.images === 'string') {
                   try {
@@ -217,26 +218,26 @@ export default function PostDetail() {
                     return [post.images];
                   }
                 }
-        
+
                 // If images is already an array, use it directly
                 if (Array.isArray(post.images)) {
                   return post.images.length > 0 ? post.images : null;
                 }
-        
+
                 // If images is an object but not an array (like a single image object)
                 if (typeof post.images === 'object') {
                   return [post.images];
                 }
-        
+
                 return null;
               } catch (error) {
                 console.error("Error processing images:", error);
                 return null;
               }
             };
-    
+
             const imageArray = getImageArray();
-    
+
             if (!imageArray) {
               return (
                 <div className="mt-4">
@@ -247,7 +248,7 @@ export default function PostDetail() {
                 </div>
               );
             }
-    
+
             return (
               <div className="mt-4">
                 <h3 className="font-medium text-sm text-gray-500 mb-2">Images</h3>
@@ -257,17 +258,17 @@ export default function PostDetail() {
                       {(() => {
                         try {
                           // Handle different image formats
-                          const imgSrc = typeof image === 'string' 
-                            ? image 
+                          const imgSrc = typeof image === 'string'
+                            ? image
                             : image.url || image.src || image.source || null;
-                  
+
                           if (!imgSrc) {
                             return <div className="flex items-center justify-center w-full h-full text-gray-500">Invalid image</div>;
                           }
-                  
+
                           return (
-                            <img 
-                              src={imgSrc} 
+                            <img
+                              src={imgSrc}
                               alt={`Food image ${index + 1}`}
                               className="object-cover w-full h-full"
                               onError={(e) => {
@@ -337,20 +338,15 @@ export default function PostDetail() {
             )}
           </ScrollArea>
         </CardContent>
-      <CardFooter>
-        <AutoForm action={api.message.create}
-          defaultValues={{
-            sender: '2',
-            recipient: '13',
-            postId: id,
-          }}>
-          <AutoInput field="content" label="message" />
-          <AutoSubmit >
-            Send Message
-          </AutoSubmit>
-        </AutoForm>
-      </CardFooter>
+        <CardFooter>
+          <AutoForm action={api.message.create}>
+            <AutoInput field="content" label="message" />
+            <AutoHiddenInput field="recipient" value="13" />
+            <AutoSubmit />
+          </AutoForm>
+        </CardFooter>
       </Card>
     </div>
   );
 }
+
