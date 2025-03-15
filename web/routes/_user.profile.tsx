@@ -12,13 +12,34 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Textarea } from "@/components/ui/textarea";
 import { useActionForm, useFindFirst, useFindMany, useUser } from "@gadgetinc/react";
 import { useState, useEffect } from "react";
 import { useOutletContext, Link } from "react-router";
 import { api } from "../api";
 import type { AuthOutletContext } from "./_user";
-import { CalendarDaysIcon, ArrowRightCircleIcon, ClockIcon } from "lucide-react";
+import { 
+  CalendarDaysIcon, 
+  ArrowRightCircleIcon, 
+  ClockIcon, 
+  InfoIcon, 
+  UserIcon, 
+  CheckCircleIcon, 
+  XCircleIcon, 
+  SearchIcon 
+} from "lucide-react";
 
 export default function () {
   const { user: contextUser } = useOutletContext<AuthOutletContext>();
@@ -27,6 +48,7 @@ export default function () {
   const [isEditing, setIsEditing] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [activeTab, setActiveTab] = useState("overview");
 
   // Fetch user's share score
   const [{ data: shareScore, fetching: fetchingShareScore }, refreshShareScore] = useFindFirst(
@@ -58,6 +80,18 @@ export default function () {
   // Max value for the progress indicator (using 100 as default)
   const maxScore = 100;
   const progressValue = (shareScoreValue / maxScore) * 100;
+  
+  // Format dates for account information
+  const formatDate = (date: string | undefined) => {
+    if (!date) return "N/A";
+    return new Date(date).toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
 
   return (
     <div className="container mx-auto p-6">
@@ -79,130 +113,256 @@ export default function () {
               <Button
                 variant="ghost"
                 onClick={() => setIsChangingPassword(true)}
+                className="text-green-700 hover:text-green-800 hover:bg-green-50"
               >
                 Change password
               </Button>
             )}
-            <Button variant="ghost" onClick={() => setIsEditing(true)}>
+            <Button 
+              variant="ghost" 
+              onClick={() => setIsEditing(true)}
+              className="text-green-700 hover:text-green-800 hover:bg-green-50"
+            >
               Edit
             </Button>
           </div>
         </div>
       </div>
 
-      {/* About Me section */}
-      <h2 className="text-xl font-semibold mb-4">About Me</h2>
-      <Card className="mb-6">
-        <CardContent className="pt-6">
-          {user.bio ? (
-            <p className="text-sm">{user.bio}</p>
-          ) : (
-            <p className="text-sm text-muted-foreground italic">No bio added yet</p>
-          )}
-        </CardContent>
-      </Card>
+      {/* Tabbed interface */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
+        <TabsList className="bg-green-50 border border-green-100">
+          <TabsTrigger 
+            value="overview" 
+            className="data-[state=active]:bg-green-600 data-[state=active]:text-white"
+          >
+            Overview
+          </TabsTrigger>
+          <TabsTrigger 
+            value="activity" 
+            className="data-[state=active]:bg-green-600 data-[state=active]:text-white"
+          >
+            Activity
+          </TabsTrigger>
+          <TabsTrigger 
+            value="preferences" 
+            className="data-[state=active]:bg-green-600 data-[state=active]:text-white"
+          >
+            Preferences
+          </TabsTrigger>
+        </TabsList>
+        
+        {/* Overview Tab Content */}
+        <TabsContent value="overview" className="mt-6">
+          {/* About Me section */}
+          <h2 className="text-xl font-semibold mb-4">About Me</h2>
+          <Card className="mb-6 border-green-100">
+            <CardContent className="pt-6">
+              {user.bio ? (
+                <p className="text-sm">{user.bio}</p>
+              ) : (
+                <p className="text-sm text-muted-foreground italic">No bio added yet</p>
+              )}
+            </CardContent>
+          </Card>
 
-      {/* Dashboard section */}
-      <h2 className="text-xl font-semibold mb-4">Dashboard</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-        {/* Share Score Card */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Share Score</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {fetchingShareScore ? (
-              <div className="space-y-2">
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-6 w-full" />
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Score</span>
-                  <span className="text-sm font-medium">{shareScoreValue}</span>
+          {/* Account Information section */}
+          <h2 className="text-xl font-semibold mb-4">Account Information</h2>
+          <Card className="mb-6 border-green-100">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg flex items-center">
+                <UserIcon className="h-5 w-5 mr-2 text-green-600" />
+                Account Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="flex items-center">
+                  <span className="text-sm font-medium w-1/3">Email Verification:</span>
+                  <span className="text-sm flex items-center">
+                    {user.emailVerified ? (
+                      <>
+                        <CheckCircleIcon className="h-4 w-4 mr-1 text-green-600" /> 
+                        <span className="text-green-700">Verified</span>
+                      </>
+                    ) : (
+                      <>
+                        <XCircleIcon className="h-4 w-4 mr-1 text-amber-600" /> 
+                        <span className="text-amber-700">Not Verified</span>
+                      </>
+                    )}
+                  </span>
                 </div>
-                <Progress 
-                  value={progressValue} 
-                  className="h-2.5" 
-                  indicatorColor="bg-green-500"
-                />
-                {shareScore?.rank && (
-                  <p className="text-sm text-muted-foreground pt-2">
-                    Current rank: {shareScore.rank}
-                  </p>
+                <div className="flex items-center">
+                  <span className="text-sm font-medium w-1/3">Account Created:</span>
+                  <span className="text-sm">{formatDate(user.createdAt)}</span>
+                </div>
+                <div className="flex items-center">
+                  <span className="text-sm font-medium w-1/3">Last Sign-in:</span>
+                  <span className="text-sm">{formatDate(user.lastSignedIn)}</span>
+                </div>
+                {user.googleProfileId && (
+                  <div className="flex items-center">
+                    <span className="text-sm font-medium w-1/3">Google Account:</span>
+                    <Badge className="bg-blue-50 text-blue-700 border-blue-200">Connected</Badge>
+                  </div>
                 )}
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        {/* Posts Count Card */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg">People Helped</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {fetchingPosts ? (
-              <div className="space-y-2">
-                <Skeleton className="h-12 w-full" />
-              </div>
-            ) : (
-              <div className="text-center">
-                <span className="text-4xl font-bold text-green-600">{postsCount}</span>
-                <p className="text-sm text-muted-foreground mt-2">
-                  Active food shares
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+          {/* Dashboard section */}
+          <h2 className="text-xl font-semibold mb-4">Dashboard</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            {/* Share Score Card */}
+            <Card className="border-green-100">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg flex items-center">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger className="flex items-center">
+                        Share Score
+                        <InfoIcon className="h-4 w-4 ml-1.5 text-muted-foreground" />
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-80">
+                        <p>Your share score increases when you share food with others. Higher scores unlock special features and recognition!</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {fetchingShareScore ? (
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-6 w-full" />
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Score</span>
+                      <span className="text-sm font-medium">{shareScoreValue}</span>
+                    </div>
+                    <Progress 
+                      value={progressValue} 
+                      className="h-2.5" 
+                      indicatorColor="bg-green-600"
+                    />
+                    {shareScore?.rank && (
+                      <p className="text-sm text-muted-foreground pt-2">
+                        Current rank: <span className="text-green-700 font-medium">{shareScore.rank}</span>
+                      </p>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
-      {/* Food Preferences section */}
-      <h2 className="text-xl font-semibold mb-4 mt-6">Food Preferences</h2>
-      <Card className="mb-6">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-lg">Allergies & Dietary Preferences</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div>
-              <h3 className="text-sm font-medium mb-2">Allergies</h3>
-              <div className="flex flex-wrap gap-2">
-                {user.allergies ? (
-                  user.allergies.split(',').map((allergy, index) => (
-                    <Badge key={index} variant="outline" className="bg-red-50 text-red-700 border-red-200">
-                      {allergy.trim()}
-                    </Badge>
-                  ))
+            {/* Posts Count Card */}
+            <Card className="border-green-100">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg flex items-center">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger className="flex items-center">
+                        People Helped
+                        <InfoIcon className="h-4 w-4 ml-1.5 text-muted-foreground" />
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-80">
+                        <p>This shows the number of active food shares you've created to help people in your community.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {fetchingPosts ? (
+                  <div className="space-y-2">
+                    <Skeleton className="h-12 w-full" />
+                  </div>
                 ) : (
-                  <span className="text-sm text-muted-foreground">No allergies specified</span>
+                  <div className="text-center">
+                    <span className="text-4xl font-bold text-green-600">{postsCount}</span>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Active food shares
+                    </p>
+                    <Button 
+                      asChild 
+                      variant="outline" 
+                      className="mt-4 text-green-700 border-green-200 hover:bg-green-50 hover:text-green-800"
+                    >
+                      <Link to="/search?filter=my">
+                        <SearchIcon className="h-4 w-4 mr-2" />
+                        View My Posts
+                      </Link>
+                    </Button>
+                  </div>
                 )}
-              </div>
-            </div>
-            
-            <div>
-              <h3 className="text-sm font-medium mb-2">Dietary Preferences</h3>
-              <div className="flex flex-wrap gap-2">
-                {user.dietaryPreferences ? (
-                  user.dietaryPreferences.split(',').map((preference, index) => (
-                    <Badge key={index} variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                      {preference.trim()}
-                    </Badge>
-                  ))
-                ) : (
-                  <span className="text-sm text-muted-foreground">No dietary preferences specified</span>
-                )}
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           </div>
-        </CardContent>
-      </Card>
-      
-      {/* Activity History section */}
-      <h2 className="text-xl font-semibold mb-4 mt-6">Activity History</h2>
-      <ActivityHistoryTimeline userId={user.id} />
+        </TabsContent>
+        
+        {/* Activity Tab Content */}
+        <TabsContent value="activity" className="mt-6">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold">Activity History</h2>
+            <Button 
+              asChild 
+              className="bg-green-600 hover:bg-green-700"
+            >
+              <Link to="/search?filter=my">
+                <SearchIcon className="h-4 w-4 mr-2" />
+                View My Posts
+              </Link>
+            </Button>
+          </div>
+          <ActivityHistoryTimeline userId={user.id} />
+        </TabsContent>
+        
+        {/* Preferences Tab Content */}
+        <TabsContent value="preferences" className="mt-6">
+          <h2 className="text-xl font-semibold mb-4">Food Preferences</h2>
+          <Card className="mb-6 border-green-100">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg">Allergies & Dietary Preferences</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-sm font-medium mb-2">Allergies</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {user.allergies ? (
+                      user.allergies.split(',').map((allergy, index) => (
+                        <Badge key={index} variant="outline" className="bg-red-50 text-red-700 border-red-200">
+                          {allergy.trim()}
+                        </Badge>
+                      ))
+                    ) : (
+                      <span className="text-sm text-muted-foreground">No allergies specified</span>
+                    )}
+                  </div>
+                </div>
+                
+                <div>
+                  <h3 className="text-sm font-medium mb-2">Dietary Preferences</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {user.dietaryPreferences ? (
+                      user.dietaryPreferences.split(',').map((preference, index) => (
+                        <Badge key={index} variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                          {preference.trim()}
+                        </Badge>
+                      ))
+                    ) : (
+                      <span className="text-sm text-muted-foreground">No dietary preferences specified</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
       
       <EditProfileModal 
         open={isEditing} 
@@ -251,10 +411,10 @@ const ActivityHistoryTimeline = ({ userId }: { userId: string }) => {
   
   if (!allPosts || allPosts.length === 0) {
     return (
-      <Card className="mb-6">
+      <Card className="mb-6 border-green-100">
         <CardContent className="pt-6 text-center">
           <p className="text-muted-foreground">No activity history yet</p>
-          <Button asChild className="mt-4">
+          <Button asChild className="mt-4 bg-green-600 hover:bg-green-700">
             <Link to="/post">Create your first food share</Link>
           </Button>
         </CardContent>
