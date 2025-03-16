@@ -11,11 +11,14 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AutoForm, AutoInput, AutoSubmit, AutoHiddenInput } from "../components/auto";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Apple, Beef, Carrot, ChefHat, Egg, Fish, Leaf, Wheat } from "lucide-react";
+import { Apple, Beef, Carrot, ChefHat, Egg, Fish, Leaf, Wheat } from "lucide-react";
 
 export default function PostDetail() {
   const { id } = useParams();
 
-  // Fetch post details
+  // Fetch post details with dietary preferences
   const [{ data: post, error: postError, fetching: fetchingPost }, refreshPost] = useFindOne(api.post, id!, {
     select: {
       id: true,
@@ -32,9 +35,94 @@ export default function PostDetail() {
         firstName: true,
         lastName: true,
         email: true,
+        dietaryPreferences: true,
       },
     },
   });
+
+  // Component to display dietary preference icons with tooltips
+  const DietaryIcons = ({ dietaryPreferences }: { dietaryPreferences?: string | null }) => {
+    if (!dietaryPreferences) return null;
+    
+    // Parse dietary preferences from string (assuming comma-separated values)
+    const preferences = dietaryPreferences.split(',').map(pref => pref.trim().toLowerCase());
+    
+    // Define icon mappings and their tooltips
+    const dietaryIcons = [
+      { 
+        id: 'vegetarian', 
+        keywords: ['vegetarian', 'veg'], 
+        icon: <Carrot className="h-4 w-4 text-orange-500" />, 
+        tooltip: 'Vegetarian' 
+      },
+      { 
+        id: 'vegan', 
+        keywords: ['vegan', 'plant-based'], 
+        icon: <Leaf className="h-4 w-4 text-green-600" />, 
+        tooltip: 'Vegan/Plant-based' 
+      },
+      { 
+        id: 'pescatarian', 
+        keywords: ['pescatarian', 'fish'], 
+        icon: <Fish className="h-4 w-4 text-blue-500" />, 
+        tooltip: 'Pescatarian' 
+      },
+      { 
+        id: 'gluten-free', 
+        keywords: ['gluten-free', 'gluten free', 'no gluten'], 
+        icon: <Wheat className="h-4 w-4 text-amber-600" />, 
+        tooltip: 'Gluten-Free' 
+      },
+      { 
+        id: 'dairy-free', 
+        keywords: ['dairy-free', 'dairy free', 'no dairy'], 
+        icon: <Egg className="h-4 w-4 text-yellow-400" />, 
+        tooltip: 'Dairy-Free' 
+      },
+      { 
+        id: 'paleo', 
+        keywords: ['paleo', 'caveman', 'paleolithic'], 
+        icon: <Beef className="h-4 w-4 text-red-600" />, 
+        tooltip: 'Paleo' 
+      },
+      { 
+        id: 'organic', 
+        keywords: ['organic', 'bio'], 
+        icon: <Apple className="h-4 w-4 text-green-500" />, 
+        tooltip: 'Organic' 
+      },
+      { 
+        id: 'chef', 
+        keywords: ['chef', 'cook', 'culinary'], 
+        icon: <ChefHat className="h-4 w-4 text-gray-500" />, 
+        tooltip: 'Chef/Culinary Professional' 
+      }
+    ];
+
+    // Display only icons that match user preferences
+    const matchedIcons = dietaryIcons.filter(icon => 
+      icon.keywords.some(keyword => 
+        preferences.some(pref => pref.includes(keyword))
+      )
+    );
+
+    return (
+      <TooltipProvider>
+        <span className="flex items-center ml-2 gap-1">
+          {matchedIcons.map((icon, index) => (
+            <Tooltip key={icon.id} delayDuration={300}>
+              <TooltipTrigger asChild>
+                <span className="inline-block cursor-help">{icon.icon}</span>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-xs">{icon.tooltip}</p>
+              </TooltipContent>
+            </Tooltip>
+          ))}
+        </span>
+      </TooltipProvider>
+    );
+  };
 
   // Get current user session
   const session = useSession(api);
@@ -169,7 +257,10 @@ export default function PostDetail() {
               {post.category === "leftovers" ? "Leftovers" : "Perishables"}
             </Badge>
           </div>
-          <CardDescription>Posted by {post.user?.firstName} {post.user?.lastName}</CardDescription>
+          <CardDescription className="flex items-center">
+            Posted by {post.user?.firstName} {post.user?.lastName}
+            <DietaryIcons dietaryPreferences={post.user?.dietaryPreferences} />
+          </CardDescription>
           <CardDescription className="mt-1 text-sm text-gray-500">Owner ID: {post.user?.id}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

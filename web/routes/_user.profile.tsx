@@ -41,6 +41,48 @@ import {
   SearchIcon 
 } from "lucide-react";
 
+// Component to display emojis for dietary preferences
+const DietaryPreferenceEmoji = ({ preference }: { preference: string }) => {
+  // Map preference to appropriate emoji
+  const emojiMap: Record<string, { emoji: string, description: string }> = {
+    "vegetarian": { emoji: "🥗", description: "Vegetarian diet" },
+    "vegan": { emoji: "🌱", description: "Vegan diet" },
+    "gluten-free": { emoji: "🌾❌", description: "Gluten-free diet" },
+    "gluten free": { emoji: "🌾❌", description: "Gluten-free diet" },
+    "dairy-free": { emoji: "🥛❌", description: "Dairy-free diet" },
+    "dairy free": { emoji: "🥛❌", description: "Dairy-free diet" },
+    "keto": { emoji: "🥩🥑", description: "Ketogenic diet" },
+    "paleo": { emoji: "🍖🥬", description: "Paleolithic diet" },
+    "pescatarian": { emoji: "🐟🥗", description: "Pescatarian diet" },
+    "low-carb": { emoji: "🍞↓", description: "Low-carbohydrate diet" },
+    "low carb": { emoji: "🍞↓", description: "Low-carbohydrate diet" },
+    "kosher": { emoji: "✡️", description: "Kosher diet" },
+    "halal": { emoji: "☪️", description: "Halal diet" },
+    "organic": { emoji: "🌿", description: "Prefers organic food" },
+    "raw": { emoji: "🥒🥕", description: "Raw food diet" }
+  };
+
+  const normalizedPreference = preference.toLowerCase().trim();
+  const preferenceInfo = emojiMap[normalizedPreference];
+  
+  if (!preferenceInfo) {
+    return null; // No emoji for this preference
+  }
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger className="cursor-default">
+          <span className="mr-1" aria-hidden="true">{preferenceInfo.emoji}</span>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>{preferenceInfo.description}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+};
+
 export default function () {
   const { user: contextUser } = useOutletContext<AuthOutletContext>();
   const user = useUser(api); // Get the most up-to-date user data
@@ -350,6 +392,7 @@ export default function () {
                     {user.dietaryPreferences ? (
                       user.dietaryPreferences.split(',').map((preference, index) => (
                         <Badge key={index} variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                          <DietaryPreferenceEmoji preference={preference.trim()} />
                           {preference.trim()}
                         </Badge>
                       ))
@@ -835,6 +878,7 @@ const EditProfileModal = (props: {
                     }`}
                     onClick={() => togglePreference(preference)}
                   >
+                    <DietaryPreferenceEmoji preference={preference} />
                     {preference}
                   </Badge>
                 ))}
@@ -853,6 +897,7 @@ const EditProfileModal = (props: {
                     }`}
                     onClick={() => togglePreference(preference)}
                   >
+                    <DietaryPreferenceEmoji preference={preference} />
                     {preference}
                     <span 
                       className="ml-1 rounded-full bg-gray-200 w-4 h-4 flex items-center justify-center text-xs text-gray-600 hover:bg-gray-300"
