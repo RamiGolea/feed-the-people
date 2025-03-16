@@ -257,16 +257,6 @@ export default function PostDetail() {
   const isPostOwner = currentUserId === postOwnerId;
 
 
-  // Mark messages as read when viewed
-  useEffect(() => {
-    if (messages && currentUserId) {
-      const unreadMessages = messages.filter(msg =>
-        msg.senderId !== currentUserId && !msg.read);
-
-      // Update unread messages to read (this would be ideal but is currently skipped as update permissions aren't set)
-      // This would require setting up proper permissions for the message.update action
-    }
-  }, [messages, currentUserId]);
 
   // Format date for display
   const formatDate = (dateString) => {
