@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useFindMany, useFindOne, useAction, useUser } from "@gadgetinc/react";
 import { useSearchParams } from "react-router";
 import { api } from "../api";
@@ -15,6 +15,8 @@ export default function DirectMessages() {
   const userIdParam = searchParams.get("userId");
   const [selectedUserId, setSelectedUserId] = useState<string | null>(userIdParam);
   const [messageInput, setMessageInput] = useState("");
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
   const currentUser = useUser();
 
   // Fetch all messages for the current user to determine conversation partners
@@ -146,6 +148,16 @@ export default function DirectMessages() {
     ]);
   }, [refreshAllMessages, refreshUsers]);
 
+  // Function to scroll to bottom of messages
+  const scrollToBottom = useCallback(() => {
+    // Use requestAnimationFrame to ensure DOM is updated before scrolling
+    requestAnimationFrame(() => {
+      if (scrollAreaRef.current) {
+        scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
+      }
+    });
+  }, []);
+
   // Start a new conversation with default message
   const startConversation = useCallback(async () => {
     if (!selectedUserId || !currentUser) return;
@@ -172,10 +184,13 @@ export default function DirectMessages() {
         // Add this user to the list of conversation partners
         conversationUserIds.push(selectedUserId);
       }
+      
+      // Ensure we scroll to bottom after starting a conversation
+      setTimeout(scrollToBottom, 300);
     } catch (error) {
       console.error("Failed to start conversation:", error);
     }
-  }, [selectedUserId, currentUser, sendMessage, refreshMessages, refreshUserConversations, conversationUserIds]);
+  }, [selectedUserId, currentUser, sendMessage, refreshMessages, refreshUserConversations, conversationUserIds, scrollToBottom]);
 
   // Handle sending a new message
   const handleSendMessage = async () => {
@@ -190,7 +205,9 @@ export default function DirectMessages() {
     });
 
     setMessageInput("");
-    refreshMessages();
+    await refreshMessages();
+    // Ensure we scroll to bottom after sending a message
+    scrollToBottom();
   };
 
   // Users with conversations are already filtered to only include those who've exchanged messages
@@ -204,16 +221,26 @@ export default function DirectMessages() {
     ? (selectedUserData || users?.find(user => user.id === selectedUserId))
     : null;
 
-  // Effect to scroll to messages when they load
+  // Scroll to bottom when messages change (new messages arrive)
   useEffect(() => {
-    // If we have a selectedUserId from URL, auto-scroll to messages
-    if (selectedUserId && !loadingMessages && messages?.length) {
-      const messagesContainer = document.querySelector('.messages-scroll-area');
-      if (messagesContainer) {
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-      }
+    if (selectedUserId && messages?.length > 0) {
+      scrollToBottom();
     }
-  }, [selectedUserId, loadingMessages, messages]);
+  }, [selectedUserId, messages, scrollToBottom]);
+
+  // Scroll to bottom when first loading messages or switching conversations
+  useEffect(() => {
+    if (selectedUserId && !loadingMessages) {
+      scrollToBottom();
+    }
+  }, [selectedUserId, loadingMessages, scrollToBottom]);
+
+  // Scroll to bottom after sending a message (when sending state changes from true to false)
+  useEffect(() => {
+    if (!sendingMessage && messageInput === '') {
+      scrollToBottom();
+    }
+  }, [sendingMessage, messageInput, scrollToBottom]);
 
   return (
     <div className="container mx-auto py-6">
@@ -323,7 +350,10 @@ export default function DirectMessages() {
             ) : (selectedUserId && (selectedUser || loadingSelectedUser)) ? (
               <>
                 <CardContent className="flex-grow p-0">
-                  <ScrollArea className="h-[400px] p-4 messages-scroll-area">
+                  <ScrollArea 
+                    className="h-[400px] p-4 messages-scroll-area"
+                    ref={scrollAreaRef}
+                  >
                     {loadingSelectedUser ? (
                       <div className="space-y-4">
                         {[1, 2, 3].map((i) => (
@@ -369,6 +399,8 @@ export default function DirectMessages() {
                         })}
                       </div>
                     )}
+                    {/* Invisible div at the end to scroll to */}
+                    <div ref={messagesEndRef} />
                   </ScrollArea>
                 </CardContent>
 
@@ -378,6 +410,8 @@ export default function DirectMessages() {
                     onSubmit={(e) => {
                       e.preventDefault();
                       handleSendMessage();
+                      // Focus back on input after sending
+                      setTimeout(scrollToBottom, 100);
                     }}
                   >
                     <Input
