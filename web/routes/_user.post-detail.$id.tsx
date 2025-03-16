@@ -3,6 +3,7 @@ import { useFindOne, useFindMany, useAction, useSession, useUser, useMaybeFindOn
 import { api } from "../api";
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -257,9 +258,10 @@ export default function PostDetail() {
   const isPostOwner = currentUserId === postOwnerId;
 
 
+  // Removed effect hook related to undefined messages
 
   // Format date for display
-  const formatDate = (dateString) => {
+  const formatDate = (dateString: string | Date | null): string => {
     if (!dateString) return "";
     const date = new Date(dateString);
     return new Intl.DateTimeFormat('en-US', {
