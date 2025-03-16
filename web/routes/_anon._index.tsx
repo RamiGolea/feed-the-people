@@ -4,40 +4,41 @@ import { Link } from "react-router";
 
 export default function () {
   return (
-    <Card className="p-8">
-      <CardHeader>
-        <CardTitle className="text-xl font-semibold">👋 Hey, Developer!</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <p className="text-base">
-          Start building your app&apos;s signed out area in <a
-            href="/edit/files/web/routes/_anon._index.jsx"
-            target="_blank"
-            rel="noreferrer"
-            className="font-medium hover:underline"
-          >
-            web/routes/_anon._index.jsx
-          </a>
-        </p>
-        
-        <Button
-          variant="default"
-          size="lg"
-          className="w-full"
-          asChild
-        >
-          <Link to="/sign-up">Sign up</Link>
-        </Button>
-        <Button
-          variant="outline"
-          size="lg"
-          className="w-full"
-          asChild
-        >
-          <Link to="/sign-in">Sign in</Link>
-        </Button>
-        
-      </CardContent>
-    </Card>
+    <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-gradient-to-b from-white to-gray-100">
+      <Card className="w-full max-w-md p-8 shadow-lg">
+        <CardHeader className="text-center">
+          <div className="flex justify-center mb-4">
+            <div className="text-4xl font-bold text-primary">
+              Share<span className="text-blue-500">A</span>Byte
+            </div>
+          </div>
+          <CardTitle className="text-2xl font-semibold">Welcome to ShareAByte</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <p className="text-center text-gray-600">
+            Your platform for sharing code snippets and programming knowledge with the community.
+          </p>
+          
+          <div className="space-y-3 pt-2">
+            <Button
+              variant="default"
+              size="lg"
+              className="w-full"
+              asChild
+            >
+              <Link to="/sign-up">Sign up</Link>
+            </Button>
+            <Button
+              variant="outline"
+              size="lg"
+              className="w-full"
+              asChild
+            >
+              <Link to="/sign-in">Sign in</Link>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

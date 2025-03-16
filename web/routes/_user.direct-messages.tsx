@@ -15,12 +15,11 @@ export default function DirectMessages() {
   const userIdParam = searchParams.get("userId");
   const [selectedUserId, setSelectedUserId] = useState<string | null>(userIdParam);
   const [messageInput, setMessageInput] = useState("");
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
   const currentUser = useUser();
 
   // Fetch all messages for the current user to determine conversation partners
   const [{ data: allUserMessages, fetching: loadingAllMessages, error: allMessagesError }, refreshAllMessages] = useFindMany(api.message, {
+    live: true, // Enable real-time updates for new conversationsgi
     filter: {
       OR: [
         { userId: { equals: currentUser?.id } },
@@ -39,7 +38,6 @@ export default function DirectMessages() {
         googleImageUrl: true,
       }
     },
-    live: true, // Enable real-time updates for new conversations
   });
   
   // Extract unique user IDs from messages (conversation partners)
@@ -95,28 +93,17 @@ export default function DirectMessages() {
     }
   );
 
-  // Fetch messages for selected user (both sent and received)
+  // Fetch all messages for the current user (a simpler approach for live updates)
   const [{ data: messages, fetching: loadingMessages, error: messagesError }, refreshMessages] = useFindMany(
     api.message,
     {
-      filter: {
+      // Simpler filter that just gets all messages involving the current user
+      filter: currentUser?.id ? {
         OR: [
-          // Messages I've sent to selected user
-          { 
-            AND: [
-              { userId: { equals: currentUser?.id } },
-              { recipient: { equals: selectedUserId } }
-            ]
-          },
-          // Messages sent to me by selected user
-          { 
-            AND: [
-              { userId: { equals: selectedUserId } },
-              { recipient: { equals: currentUser?.id } }
-            ]
-          }
+          { userId: { equals: currentUser.id } },
+          { recipient: { equals: currentUser.id } }
         ]
-      },
+      } : {},
       sort: { createdAt: "Ascending" },
       live: true, // Enable real-time updates
       select: {
@@ -132,8 +119,19 @@ export default function DirectMessages() {
         },
         recipient: true,
       },
+      pause: !currentUser?.id, // Pause if we don't have a current user
     }
   );
+
+  // Filter messages client-side to show only those between the current user and selected user
+  const filteredMessages = useMemo(() => {
+    if (!messages || !selectedUserId || !currentUser?.id) return [];
+    
+    return messages.filter(message => 
+      (message.userId === currentUser.id && message.recipient === selectedUserId) ||
+      (message.userId === selectedUserId && message.recipient === currentUser.id)
+    );
+  }, [messages, selectedUserId, currentUser?.id]);
 
   // Send message action
   const [{ fetching: sendingMessage }, sendMessage] = useAction(api.message.create);
@@ -147,16 +145,6 @@ export default function DirectMessages() {
       refreshUsers()
     ]);
   }, [refreshAllMessages, refreshUsers]);
-
-  // Function to scroll to bottom of messages
-  const scrollToBottom = useCallback(() => {
-    // Use requestAnimationFrame to ensure DOM is updated before scrolling
-    requestAnimationFrame(() => {
-      if (scrollAreaRef.current) {
-        scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
-      }
-    });
-  }, []);
 
   // Start a new conversation with default message
   const startConversation = useCallback(async () => {
@@ -184,13 +172,10 @@ export default function DirectMessages() {
         // Add this user to the list of conversation partners
         conversationUserIds.push(selectedUserId);
       }
-      
-      // Ensure we scroll to bottom after starting a conversation
-      setTimeout(scrollToBottom, 300);
     } catch (error) {
       console.error("Failed to start conversation:", error);
     }
-  }, [selectedUserId, currentUser, sendMessage, refreshMessages, refreshUserConversations, conversationUserIds, scrollToBottom]);
+  }, [selectedUserId, currentUser, sendMessage, refreshMessages, refreshUserConversations, conversationUserIds]);
 
   // Handle sending a new message
   const handleSendMessage = async () => {
@@ -205,9 +190,7 @@ export default function DirectMessages() {
     });
 
     setMessageInput("");
-    await refreshMessages();
-    // Ensure we scroll to bottom after sending a message
-    scrollToBottom();
+    refreshMessages();
   };
 
   // Users with conversations are already filtered to only include those who've exchanged messages
@@ -221,26 +204,35 @@ export default function DirectMessages() {
     ? (selectedUserData || users?.find(user => user.id === selectedUserId))
     : null;
 
-  // Scroll to bottom when messages change (new messages arrive)
-  useEffect(() => {
-    if (selectedUserId && messages?.length > 0) {
-      scrollToBottom();
-    }
-  }, [selectedUserId, messages, scrollToBottom]);
+  // Create ref for the messages scroll area
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
 
-  // Scroll to bottom when first loading messages or switching conversations
-  useEffect(() => {
-    if (selectedUserId && !loadingMessages) {
-      scrollToBottom();
+  // Function to scroll to the bottom of messages
+  const scrollToBottom = useCallback(() => {
+    if (scrollAreaRef.current) {
+      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
     }
-  }, [selectedUserId, loadingMessages, scrollToBottom]);
+  }, [scrollAreaRef]);
 
-  // Scroll to bottom after sending a message (when sending state changes from true to false)
+  // Effect to scroll to messages when they load or update
   useEffect(() => {
-    if (!sendingMessage && messageInput === '') {
+    // If we have a selectedUserId and messages, scroll to bottom
+    if (selectedUserId && !loadingMessages && filteredMessages.length) {
       scrollToBottom();
     }
-  }, [sendingMessage, messageInput, scrollToBottom]);
+  }, [selectedUserId, loadingMessages, filteredMessages, scrollToBottom]);
+  
+  // Effect to implement periodic refreshing of messages (every 15 seconds)
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      if (selectedUserId) {
+        refreshMessages();
+      }
+    }, 15000); // 15 seconds interval
+    
+    // Cleanup interval on component unmount
+    return () => clearInterval(intervalId);
+  }, [selectedUserId, refreshMessages]);
 
   return (
     <div className="container mx-auto py-6">
@@ -350,10 +342,7 @@ export default function DirectMessages() {
             ) : (selectedUserId && (selectedUser || loadingSelectedUser)) ? (
               <>
                 <CardContent className="flex-grow p-0">
-                  <ScrollArea 
-                    className="h-[400px] p-4 messages-scroll-area"
-                    ref={scrollAreaRef}
-                  >
+                  <ScrollArea className="h-[400px] p-4 messages-scroll-area" ref={scrollAreaRef}>
                     {loadingSelectedUser ? (
                       <div className="space-y-4">
                         {[1, 2, 3].map((i) => (
@@ -366,13 +355,13 @@ export default function DirectMessages() {
                       <div className="flex justify-center p-4">Loading messages...</div>
                     ) : messagesError ? (
                       <div className="text-red-500 p-4">Error loading messages: {messagesError.toString()}</div>
-                    ) : messages?.length === 0 ? (
+                    ) : filteredMessages.length === 0 ? (
                       <div className="text-center p-4 text-gray-500">
                         No messages yet. Start the conversation!
                       </div>
                     ) : (
                       <div className="space-y-4">
-                        {messages?.map((message) => {
+                        {filteredMessages.map((message) => {
                           const isCurrentUserMessage = message.userId === currentUser?.id;
                           return (
                             <div
@@ -399,8 +388,6 @@ export default function DirectMessages() {
                         })}
                       </div>
                     )}
-                    {/* Invisible div at the end to scroll to */}
-                    <div ref={messagesEndRef} />
                   </ScrollArea>
                 </CardContent>
 
@@ -410,8 +397,6 @@ export default function DirectMessages() {
                     onSubmit={(e) => {
                       e.preventDefault();
                       handleSendMessage();
-                      // Focus back on input after sending
-                      setTimeout(scrollToBottom, 100);
                     }}
                   >
                     <Input
