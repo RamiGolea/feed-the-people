@@ -17,6 +17,10 @@ type Params = {
   "/post-detail/:id": {
     "id": string;
   };
+  "/notifications": {};
+  "/notifications/:id": {
+    "id": string;
+  };
   "/messages/new": {};
   "/leaderboard": {};
   "/signed-in": {};

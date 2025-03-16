@@ -42,8 +42,21 @@ export const loader = async ({ context }: Route.LoaderArgs) => {
     return redirect(gadgetConfig.authentication!.signInPath);
   }
 
+  // Fetch unread notifications count
+  const unreadNotifications = userId 
+    ? await context.api.notification.findMany({
+        filter: {
+          recipientId: { equals: userId },
+          isRead: { equals: false }
+        }
+      })
+    : [];
+  
+  const unreadNotificationsCount = unreadNotifications.length;
+
   return {
     user,
+    unreadNotificationsCount
   };
 };
 
@@ -100,7 +113,7 @@ const UserMenu = ({ user }: { user: any }) => {
   );
 };
 
-const NavBar = ({ user }: { user: any }) => {
+const NavBar = ({ user, unreadNotificationsCount = 0 }: { user: any, unreadNotificationsCount?: number }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
 
@@ -141,9 +154,16 @@ const NavBar = ({ user }: { user: any }) => {
                 <span className="ml-2">{item.label}</span>
               </Link>
             ))}
-            <Button variant="ghost" size="icon" className="rounded-full">
-              <Bell className="h-5 w-5" />
-            </Button>
+            <Link to="/notifications">
+              <Button variant="ghost" size="icon" className="rounded-full relative">
+                <Bell className="h-5 w-5" />
+                {unreadNotificationsCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                    {unreadNotificationsCount > 99 ? '99+' : unreadNotificationsCount}
+                  </span>
+                )}
+              </Button>
+            </Link>
           </nav>
 
           {/* User Menu - Always visible */}
@@ -192,15 +212,25 @@ const NavBar = ({ user }: { user: any }) => {
                 <span className="ml-2">{item.label}</span>
               </Link>
             ))}
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="flex items-center w-full justify-start px-3 py-2 rounded-md text-sm font-medium"
+            <Link 
+              to="/notifications"
+              className="w-full"
               onClick={() => setMobileMenuOpen(false)}
             >
-              <Bell className="h-5 w-5 mr-2" />
-              Notifications
-            </Button>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="flex items-center w-full justify-start px-3 py-2 rounded-md text-sm font-medium relative"
+              >
+                <Bell className="h-5 w-5 mr-2" />
+                Notifications
+                {unreadNotificationsCount > 0 && (
+                  <span className="ml-2 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
+                    {unreadNotificationsCount > 99 ? '99+' : unreadNotificationsCount}
+                  </span>
+                )}
+              </Button>
+            </Link>
           </div>
         </div>
       </div>
@@ -210,11 +240,12 @@ const NavBar = ({ user }: { user: any }) => {
 
 export default function ({ loaderData }: Route.ComponentProps) {
   const user = "user" in loaderData ? loaderData.user : undefined;
+  const unreadNotificationsCount = "unreadNotificationsCount" in loaderData ? loaderData.unreadNotificationsCount : 0;
   const rootOutletContext = useOutletContext<RootOutletContext>();
 
   return (
     <div className="min-h-screen flex flex-col">
-      <NavBar user={user} />
+      <NavBar user={user} unreadNotificationsCount={unreadNotificationsCount} />
       <main className="flex-1 overflow-y-auto">
         <div className="container mx-auto px-4 pb-6 md:pb-8">
           <Outlet

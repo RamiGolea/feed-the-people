@@ -1,5 +1,5 @@
 import { useNavigate, useParams } from "react-router";
-import { useFindOne, useAction, useSession } from "@gadgetinc/react";
+import { useFindOne, useFindMany, useAction, useSession, useUser, useMaybeFindOne } from "@gadgetinc/react";
 import { api } from "../api";
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -16,9 +16,72 @@ export default function PostDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [recipientEmail, setRecipientEmail] = useState("");
+  const [emailError, setEmailError] = useState("");
+  const [isEmailValid, setIsEmailValid] = useState(false);
+  const [isCheckingUser, setIsCheckingUser] = useState(false);
+  const [userExists, setUserExists] = useState<boolean | null>(null);
 
   // Setup delete action
   const [{ fetching: deleteFetching, error: deleteError }, deletePost] = useAction(api.post.delete);
+
+  // Setup complete action
+  const [{ fetching: completeFetching, error: completeError }, completePost] = useAction(api.post.complete);
+
+  // Email validation function
+  const isValidEmail = (email: string) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  };
+
+  // Handle email change with validation
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const email = e.target.value;
+    setRecipientEmail(email);
+    
+    if (!email) {
+      setEmailError("Email is required");
+      setIsEmailValid(false);
+    } else if (!isValidEmail(email)) {
+      setEmailError("Please enter a valid email address");
+      setIsEmailValid(false);
+    } else {
+      setEmailError("");
+      setIsEmailValid(true);
+    }
+    
+    // Reset user existence check when email changes
+    setUserExists(null);
+  };
+  
+  // Check if user exists with the given email
+  const checkUserExists = async (email: string) => {
+    if (!isEmailValid) return;
+    
+    setIsCheckingUser(true);
+    try {
+      const result = await api.user.findFirst({
+        filter: { email: { equals: email } },
+        select: { id: true }
+      });
+      
+      // If we got here, a user was found
+      setUserExists(true);
+      setEmailError("");
+    } catch (error) {
+      // No user found with this email
+      setUserExists(false);
+      setEmailError("No user found with this email address");
+    } finally {
+      setIsCheckingUser(false);
+    }
+  };
+  
+  // Handle email field blur event
+  const handleEmailBlur = () => {
+    if (isEmailValid) {
+      checkUserExists(recipientEmail);
+    }
+  };
 
   // Handle post deletion
   const handleDeletePost = async () => {
@@ -30,6 +93,53 @@ export default function PostDetail() {
       toast.error("Failed to delete post: " + (error instanceof Error ? error.message : String(error)));
     } finally {
       setDeleteDialogOpen(false);
+    }
+  };
+
+  // Handle post completion
+  const handleCompletePost = async () => {
+    // Validate email before proceeding
+    if (!isEmailValid) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+    
+    // Check if user exists (if not already checked)
+    if (userExists === false) {
+      toast.error("No user with this email exists. Please check the email address.");
+      return;
+    }
+    
+    try {
+      const result = await completePost({ id, recipientEmail }, { 
+        select: { 
+          success: true,
+          post: {
+            status: true,
+            title: true
+          }
+        }
+      });
+      
+      toast.success("Listing has been completed.", {
+        duration: 4000,
+      });
+      navigate("/signed-in");
+    } catch (error) {
+      // Provide more specific error feedback without navigating away
+      if (error instanceof Error) {
+        if (error.message.includes("permission")) {
+          toast.error("You don't have permission to complete this post.");
+        } else if (error.message.includes("network")) {
+          toast.error("Network error. Please check your connection and try again.");
+        } else if (error.message.includes("recipient")) {
+          toast.error("Invalid recipient email. Please check and try again.");
+        } else {
+          toast.error(`Failed to complete post: ${error.message}`);
+        }
+      } else {
+        toast.error("An unexpected error occurred while completing the post.");
+      }
     }
   };
 
@@ -147,6 +257,16 @@ export default function PostDetail() {
   const isPostOwner = currentUserId === postOwnerId;
 
 
+  // Mark messages as read when viewed
+  useEffect(() => {
+    if (messages && currentUserId) {
+      const unreadMessages = messages.filter(msg =>
+        msg.senderId !== currentUserId && !msg.read);
+
+      // Update unread messages to read (this would be ideal but is currently skipped as update permissions aren't set)
+      // This would require setting up proper permissions for the message.update action
+    }
+  }, [messages, currentUserId]);
 
   // Format date for display
   const formatDate = (dateString) => {
@@ -226,8 +346,38 @@ export default function PostDetail() {
             <div className="flex-1">
               <CardTitle className="text-2xl font-bold">{post.title}</CardTitle>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col items-end gap-2">
+              {isPostOwner && post.status !== "Archived" && (
+                <>
+                  <Button 
+                    className="bg-green-600 text-white hover:bg-green-700"
+                    size="sm"
+                    onClick={handleCompletePost}
+                    disabled={completeFetching || !isValidEmail(recipientEmail)}
+                  >
+                    {completeFetching ? "Completing..." : "Complete"}
+                  </Button>
+                  <div className="w-full mt-2">
+                    <Input
+                      type="email"
+                      placeholder="user@example.com"
+                      value={recipientEmail}
+                      onChange={handleEmailChange}
+                      onBlur={handleEmailBlur}
+                      className={`w-full text-sm ${emailError ? 'border-red-500' : isEmailValid ? 'border-green-500' : ''}`}
+                      aria-label="Recipient Email"
+                    />
+                    <div className="flex justify-between mt-1">
+                      <div className="text-xs text-gray-500">Recipient Email</div>
+                      {isCheckingUser && <div className="text-xs text-blue-500">Checking user...</div>}
+                      {userExists === true && <div className="text-xs text-green-500">User found!</div>}
+                    </div>
+                    {emailError && <div className="text-xs text-red-500 mt-1">{emailError}</div>}
+                  </div>
+                </>
+              )}
               {isPostOwner && (
+              
                 <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
                   <Button 
                     variant="destructive" 
@@ -380,7 +530,7 @@ export default function PostDetail() {
                         } catch (error) {
                           return <div className="flex items-center justify-center w-full h-full text-gray-500">Error</div>;
                         }
-                      })()}
+                      })()};
                     </div>
                   ))}
                 </div>
@@ -394,6 +544,13 @@ export default function PostDetail() {
       {deleteError && (
         <div className="mb-4 p-3 bg-red-50 text-red-500 rounded-md">
           Error deleting post: {deleteError.toString()}
+        </div>
+      )}
+
+      {/* Error display for complete action */}
+      {completeError && (
+        <div className="mb-4 p-3 bg-red-50 text-red-500 rounded-md">
+          Error completing post: {completeError.toString()}
         </div>
       )}
       
@@ -433,4 +590,3 @@ export default function PostDetail() {
     </div>
   );
 }
-
