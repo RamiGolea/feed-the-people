@@ -1,18 +1,18 @@
 // React Router generated types for route:
-// routes/_user.messages.new.tsx
+// routes/_user.direct-messages.tsx
 
 import type * as T from "react-router/route-module"
 
 import type { Info as Parent0 } from "../../+types/root.js"
 import type { Info as Parent1 } from "./_user.js"
 
-type Module = typeof import("../_user.messages.new.js")
+type Module = typeof import("../_user.direct-messages.js")
 
 export type Info = {
   parents: [Parent0, Parent1],
-  id: "routes/_user.messages.new"
-  file: "routes/_user.messages.new.tsx"
-  path: "messages/new"
+  id: "routes/_user.direct-messages"
+  file: "routes/_user.direct-messages.tsx"
+  path: "direct-messages"
   params: {} & { [key: string]: string | undefined }
   module: Module
   loaderData: T.CreateLoaderData<Module>

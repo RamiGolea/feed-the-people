@@ -26,11 +26,26 @@ export const permissions: GadgetPermissions = {
             update: true,
           },
         },
+        notification: {
+          read: {
+            filter:
+              "accessControl/filters/notification/signed-in-read.gelly",
+          },
+          actions: {
+            create: true,
+            delete: true,
+            update: true,
+          },
+        },
         post: {
           read: {
             filter: "accessControl/filters/post/signed-in-read.gelly",
           },
           actions: {
+            complete: {
+              filter:
+                "accessControl/filters/post/signed-in-complete.gelly",
+            },
             create: {
               filter:
                 "accessControl/filters/post/signed-in-read.gelly",
