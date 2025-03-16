@@ -9,6 +9,8 @@ import {
   CardDescription 
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Form, FormControl, FormField, FormItem } from "@/components/ui/form";
 
 export default function LeaderboardPage() {
   
@@ -32,6 +34,7 @@ export default function LeaderboardPage() {
 function ShareScoreLeaderboard() {
   const usersPerPage = 10;
   const [currentPage, setCurrentPage] = useState(1);
+  const [inputPage, setInputPage] = useState("");
   
   const [{ data: shareScores, fetching, error }] = useFindMany(api.shareScore, {
     sort: { score: "Descending" },
@@ -54,6 +57,22 @@ function ShareScoreLeaderboard() {
   
   const goToNextPage = () => {
     setCurrentPage(prev => Math.min(prev + 1, totalPages));
+  };
+
+  const handlePageInputChange = (e) => {
+    setInputPage(e.target.value);
+  };
+
+  const handleGoToPage = (e) => {
+    e.preventDefault();
+    const pageNumber = parseInt(inputPage, 10);
+    if (!isNaN(pageNumber) && pageNumber >= 1 && pageNumber <= totalPages) {
+      setCurrentPage(pageNumber);
+      setInputPage("");
+    } else {
+      // Reset input if invalid
+      setInputPage("");
+    }
   };
 
   if (fetching) {
@@ -155,7 +174,27 @@ function ShareScoreLeaderboard() {
 
     {/* Pagination controls */}
     {totalPages > 1 && (
-      <div className="mt-4 flex justify-end">
+      <div className="mt-4 flex justify-between items-center">
+        <form onSubmit={handleGoToPage} className="inline-flex items-center gap-2">
+          <span className="text-sm">Go to page:</span>
+          <Input
+            type="number"
+            min="1"
+            max={totalPages}
+            value={inputPage}
+            onChange={handlePageInputChange}
+            className="w-16 h-8"
+            placeholder="#"
+          />
+          <Button 
+            type="submit"
+            size="sm"
+            variant="outline"
+          >
+            Go
+          </Button>
+        </form>
+        
         <div className="inline-flex items-center gap-2 rounded-md p-2">
           <Button 
             size="sm"

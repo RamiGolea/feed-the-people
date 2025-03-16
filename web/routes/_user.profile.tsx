@@ -25,20 +25,17 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Textarea } from "@/components/ui/textarea";
-import { useActionForm, useFindFirst, useFindMany, useUser } from "@gadgetinc/react";
+import { useActionForm, useFindFirst, useUser } from "@gadgetinc/react";
 import { useState, useEffect } from "react";
-import { useOutletContext, Link } from "react-router";
+import { useOutletContext } from "react-router";
 import { api } from "../api";
 import type { AuthOutletContext } from "./_user";
 import { 
-  CalendarDaysIcon, 
-  ArrowRightCircleIcon, 
-  ClockIcon, 
   InfoIcon, 
   UserIcon, 
   CheckCircleIcon, 
-  XCircleIcon, 
-  SearchIcon 
+  XCircleIcon,
+  MapPinIcon
 } from "lucide-react";
 
 // Component to display emojis for dietary preferences
@@ -100,16 +97,10 @@ export default function () {
     }
   );
 
-  // Fetch posts created by the user
-  const [{ data: posts, fetching: fetchingPosts }, refreshPosts] = useFindMany(api.post, {
-    filter: { user: { equals: user.id }, status: { equals: "Active" } },
-  });
-  
   // Refresh data when the refresh trigger changes
   useEffect(() => {
     refreshShareScore();
-    refreshPosts();
-  }, [refreshTrigger, refreshShareScore, refreshPosts]);
+  }, [refreshTrigger, refreshShareScore]);
 
   const hasName = user.firstName || user.lastName;
   const title = hasName ? `${user.firstName} ${user.lastName}` : user.email;
@@ -117,7 +108,6 @@ export default function () {
     ? (user.firstName?.slice(0, 1) ?? "") + (user.lastName?.slice(0, 1) ?? "")
     : "";
 
-  const postsCount = posts?.length || 0;
   const shareScoreValue = shareScore?.score || 0;
   // Max value for the progress indicator (using 100 as default)
   const maxScore = 100;
@@ -179,12 +169,6 @@ export default function () {
             className="data-[state=active]:bg-green-600 data-[state=active]:text-white"
           >
             Overview
-          </TabsTrigger>
-          <TabsTrigger 
-            value="activity" 
-            className="data-[state=active]:bg-green-600 data-[state=active]:text-white"
-          >
-            Activity
           </TabsTrigger>
           <TabsTrigger 
             value="preferences" 
@@ -299,69 +283,10 @@ export default function () {
                 )}
               </CardContent>
             </Card>
+          </div>
+        </TabsContent>
+         
 
-            {/* Posts Count Card */}
-            <Card className="border-green-100">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg flex items-center">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger className="flex items-center">
-                        People Helped
-                        <InfoIcon className="h-4 w-4 ml-1.5 text-muted-foreground" />
-                      </TooltipTrigger>
-                      <TooltipContent className="max-w-80">
-                        <p>This shows the number of active food shares you've created to help people in your community.</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {fetchingPosts ? (
-                  <div className="space-y-2">
-                    <Skeleton className="h-12 w-full" />
-                  </div>
-                ) : (
-                  <div className="text-center">
-                    <span className="text-4xl font-bold text-green-600">{postsCount}</span>
-                    <p className="text-sm text-muted-foreground mt-2">
-                      Active food shares
-                    </p>
-                    <Button 
-                      asChild 
-                      variant="outline" 
-                      className="mt-4 text-green-700 border-green-200 hover:bg-green-50 hover:text-green-800"
-                    >
-                      <Link to="/search?filter=my">
-                        <SearchIcon className="h-4 w-4 mr-2" />
-                        View My Posts
-                      </Link>
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-        
-        {/* Activity Tab Content */}
-        <TabsContent value="activity" className="mt-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">Activity History</h2>
-            <Button 
-              asChild 
-              className="bg-green-600 hover:bg-green-700"
-            >
-              <Link to="/search?filter=my">
-                <SearchIcon className="h-4 w-4 mr-2" />
-                View My Posts
-              </Link>
-            </Button>
-          </div>
-          <ActivityHistoryTimeline userId={user.id} />
-        </TabsContent>
-        
         {/* Preferences Tab Content */}
         <TabsContent value="preferences" className="mt-6">
           <h2 className="text-xl font-semibold mb-4">Food Preferences</h2>
@@ -405,6 +330,8 @@ export default function () {
             </CardContent>
           </Card>
         </TabsContent>
+
+
       </Tabs>
       
       <EditProfileModal 
@@ -421,188 +348,6 @@ export default function () {
 }
 
 
-const ActivityHistoryTimeline = ({ userId }: { userId: string }) => {
-  // Fetch both active and archived posts for the timeline
-  const [{ data: allPosts, fetching: fetchingPosts }] = useFindMany(api.post, {
-    filter: { 
-      user: { equals: userId },
-      // Include both active and archived posts
-      status: { in: ["Active", "Archived"] }
-    },
-    sort: { createdAt: "Descending" },
-    select: {
-      id: true,
-      title: true,
-      description: true,
-      category: true,
-      status: true,
-      createdAt: true,
-      location: true,
-      goBadDate: true,
-      images: true
-    }
-  });
-  
-  if (fetchingPosts) {
-    return (
-      <div className="space-y-4">
-        <Skeleton className="h-32 w-full rounded-md" />
-        <Skeleton className="h-32 w-full rounded-md" />
-      </div>
-    );
-  }
-  
-  if (!allPosts || allPosts.length === 0) {
-    return (
-      <Card className="mb-6 border-green-100">
-        <CardContent className="pt-6 text-center">
-          <p className="text-muted-foreground">No activity history yet</p>
-          <Button asChild className="mt-4 bg-green-600 hover:bg-green-700">
-            <Link to="/post">Create your first food share</Link>
-          </Button>
-        </CardContent>
-      </Card>
-    );
-  }
-  
-  // Calculate statistics
-  const activePosts = allPosts.filter(post => post.status === "Active").length;
-  const archivedPosts = allPosts.filter(post => post.status === "Archived").length;
-  const totalPosts = allPosts.length;
-  
-  // Format date for display
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'short', 
-      day: 'numeric' 
-    });
-  };
-  
-  // Format time for display
-  const formatTime = (date: string) => {
-    return new Date(date).toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit'
-    });
-  };
-  
-  // Get category badge class based on category
-  const getCategoryClass = (category: string) => {
-    switch(category) {
-      case "leftovers":
-        return "bg-orange-50 text-orange-700 border-orange-200";
-      case "perishables":
-        return "bg-blue-50 text-blue-700 border-blue-200";
-      default:
-        return "bg-gray-50 text-gray-700 border-gray-200";
-    }
-  };
-  
-  // Get status badge class based on status
-  const getStatusClass = (status: string) => {
-    switch(status) {
-      case "Active":
-        return "bg-green-50 text-green-700 border-green-200";
-      case "Archived":
-        return "bg-purple-50 text-purple-700 border-purple-200";
-      default:
-        return "bg-gray-50 text-gray-700 border-gray-200";
-    }
-  };
-  
-  return (
-    <>
-      {/* Statistics */}
-      <Card className="mb-6">
-        <CardContent className="py-4">
-          <div className="grid grid-cols-3 gap-4 text-center">
-            <div>
-              <p className="text-2xl font-bold text-green-600">{totalPosts}</p>
-              <p className="text-sm text-muted-foreground">Total Shares</p>
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-green-600">{activePosts}</p>
-              <p className="text-sm text-muted-foreground">Active Shares</p>
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-purple-600">{archivedPosts}</p>
-              <p className="text-sm text-muted-foreground">Completed Shares</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-      
-      {/* Timeline */}
-      <Card className="mb-6">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-lg">Sharing Timeline</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-6 relative">
-            {/* Vertical timeline line */}
-            <div className="absolute left-[14px] top-1 bottom-6 w-[2px] bg-gray-200"></div>
-            
-            {allPosts.map((post, index) => (
-              <div key={post.id} className="relative pl-10">
-                {/* Timeline dot */}
-                <div className={`absolute left-0 top-1 h-7 w-7 rounded-full border-2 flex items-center justify-center 
-                  ${post.status === "Active" ? "bg-green-50 border-green-200" : "bg-purple-50 border-purple-200"}`}>
-                  {post.status === "Active" ? (
-                    <CalendarDaysIcon className="h-4 w-4 text-green-600" />
-                  ) : (
-                    <ClockIcon className="h-4 w-4 text-purple-600" />
-                  )}
-                </div>
-                
-                {/* Content card */}
-                <div className="p-3 bg-background border rounded-lg shadow-sm hover:shadow-md transition-shadow">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <h3 className="text-md font-medium">{post.title}</h3>
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        <Badge variant="outline" className={getStatusClass(post.status)}>
-                          {post.status}
-                        </Badge>
-                        <Badge variant="outline" className={getCategoryClass(post.category || "")}>
-                          {post.category || "Uncategorized"}
-                        </Badge>
-                        {post.location && (
-                          <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200">
-                            {post.location}
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                    <Link 
-                      to={`/post-detail/${post.id}`}
-                      className="text-blue-600 hover:text-blue-800 transition-colors"
-                    >
-                      <ArrowRightCircleIcon className="h-5 w-5" />
-                    </Link>
-                  </div>
-                  
-                  <div className="text-sm text-muted-foreground mb-2">
-                    {post.description.length > 100 
-                      ? post.description.substring(0, 100) + "..." 
-                      : post.description}
-                  </div>
-                  
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <CalendarDaysIcon className="h-3 w-3" /> 
-                    {formatDate(post.createdAt)}
-                    <ClockIcon className="h-3 w-3 ml-2" />
-                    {formatTime(post.createdAt)}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-    </>
-  );
-};
 
 const EditProfileModal = (props: { 
   open: boolean; 
@@ -755,110 +500,133 @@ const EditProfileModal = (props: {
     setShowCustomPreferenceInput(false);
   };
 
-  return (
-    <Dialog open={props.open} onOpenChange={props.onClose}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Edit profile</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={submit}>
-          <div className="space-y-4">
-            <div>
-              <Label>First Name</Label>
-              <Input placeholder="First name" {...register("firstName")} />
-            </div>
-            <div>
-              <Label>Last Name</Label>
-              <Input placeholder="Last name" {...register("lastName")} />
-            </div>
-            <div>
-              <Label>About Me</Label>
-              <Textarea 
-                placeholder="Tell others about yourself" 
-                {...register("bio")} 
-                rows={4}
-                className="resize-none"
-              />
-            </div>
-            <div>
-              <Label className="block mb-2">Allergies</Label>
-              
-              <div className="flex flex-wrap gap-2 mb-3">
-                {/* Common allergies */}
-                {commonAllergies.map((allergy) => (
-                  <Badge
-                    key={allergy}
-                    variant="outline"
-                    className={`cursor-pointer hover:bg-secondary transition-colors px-3 py-1 ${
-                      selectedAllergies.some(
-                        (a) => a.toLowerCase() === allergy.toLowerCase()
-                      )
-                        ? "bg-red-50 text-red-700 border-red-200"
-                        : ""
-                    }`}
-                    onClick={() => toggleAllergy(allergy)}
-                  >
-                    {allergy}
-                  </Badge>
-                ))}
-                
-                {/* Custom allergies */}
-                {customAllergies.map((allergy) => (
-                  <Badge
-                    key={`custom-${allergy}`}
-                    variant="outline"
-                    className={`cursor-pointer hover:bg-secondary transition-colors px-3 py-1 flex items-center gap-1 ${
-                      selectedAllergies.some(
-                        (a) => a.toLowerCase() === allergy.toLowerCase()
-                      )
-                        ? "bg-red-50 text-red-700 border-red-200"
-                        : "bg-orange-50 text-orange-700 border-orange-200"
-                    }`}
-                    onClick={() => toggleAllergy(allergy)}
-                  >
-                    {allergy}
-                    <span 
-                      className="ml-1 rounded-full bg-gray-200 w-4 h-4 flex items-center justify-center text-xs text-gray-600 hover:bg-gray-300"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removeCustomAllergy(allergy);
-                      }}
-                    >
-                      ×
-                    </span>
-                  </Badge>
-                ))}
-                
-                <Badge
-                  variant="outline"
-                  className="cursor-pointer hover:bg-secondary transition-colors px-3 py-1"
-                  onClick={() => setShowCustomAllergyInput(!showCustomAllergyInput)}
+return (
+  <Dialog open={props.open} onOpenChange={props.onClose}>
+    <DialogContent className="max-h-[90vh] overflow-y-auto">
+      <DialogHeader>
+        <DialogTitle>Edit profile</DialogTitle>
+      </DialogHeader>
+      <form onSubmit={submit} className="space-y-6">
+        <div className="grid gap-4 md:grid-cols-2">
+          <div>
+            <Label htmlFor="firstName">First name</Label>
+            <Input {...register("firstName")} id="firstName" />
+          </div>
+          <div>
+            <Label htmlFor="lastName">Last name</Label>
+            <Input {...register("lastName")} id="lastName" />
+          </div>
+        </div>
+        
+        <div>
+          <Label htmlFor="bio">Bio</Label>
+          <Textarea 
+            {...register("bio")} 
+            id="bio" 
+            placeholder="Tell others about yourself" 
+            className="h-24"
+          />
+        </div>
+        
+        {/* Allergies section */}
+        <div>
+          <Label className="mb-2 block">Allergies</Label>
+          <div className="flex flex-wrap gap-2 mb-2">
+            {commonAllergies.map((allergy) => (
+              <Badge 
+                key={allergy}
+                variant={selectedAllergies.some(a => 
+                  a.toLowerCase() === allergy.toLowerCase()
+                ) ? "default" : "outline"}
+                className={selectedAllergies.some(a => 
+                  a.toLowerCase() === allergy.toLowerCase()
+                ) ? "bg-red-100 hover:bg-red-200 text-red-800 cursor-pointer" 
+                  : "bg-background hover:bg-slate-100 cursor-pointer"}
+                onClick={() => toggleAllergy(allergy)}
+              >
+                {allergy}
+              </Badge>
+            ))}
+            
+            {/* Custom allergies */}
+            {customAllergies.map((allergy) => (
+              <Badge 
+                key={allergy}
+                variant={selectedAllergies.some(a => 
+                  a.toLowerCase() === allergy.toLowerCase()
+                ) ? "default" : "outline"}
+                className={selectedAllergies.some(a => 
+                  a.toLowerCase() === allergy.toLowerCase()
+                ) ? "bg-red-100 hover:bg-red-200 text-red-800 cursor-pointer group" 
+                  : "bg-background hover:bg-slate-100 cursor-pointer group"}
+              >
+                <span onClick={() => toggleAllergy(allergy)}>{allergy}</span>
+                <XCircleIcon 
+                  className="h-3.5 w-3.5 ml-1 opacity-50 group-hover:opacity-100"
+                  onClick={() => removeCustomAllergy(allergy)} 
+                />
+              </Badge>
+            ))}
+            
+            {showCustomAllergyInput ? (
+              <div className="flex items-center gap-2">
+                <Input
+                  value={customAllergy}
+                  onChange={(e) => setCustomAllergy(e.target.value)}
+                  className="h-8"
+                  placeholder="Enter allergy"
+                />
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={addCustomAllergy}
+                  className="h-8"
                 >
-                  + Other
-                </Badge>
+                  Add
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => {
+                    setCustomAllergy("");
+                    setShowCustomAllergyInput(false);
+                  }}
+                  className="h-8 p-0 w-8"
+                >
+                  <XCircleIcon className="h-4 w-4" />
+                </Button>
               </div>
-              
-              {showCustomAllergyInput && (
-                <div className="flex gap-2 mb-3">
-                  <Input
-                    placeholder="Enter custom allergy"
-                    value={customAllergy}
-                    onChange={(e) => setCustomAllergy(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addCustomAllergy())}
-                  />
-                  <Button type="button" onClick={addCustomAllergy}>Add</Button>
-                </div>
-              )}
-              
-              <input
-                type="hidden"
-                {...register("allergies")}
-              />
-              
-              <p className="text-xs text-muted-foreground mt-2">
-                Click options above to add or remove allergies
-              </p>
-            </div>
+            ) : (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setShowCustomAllergyInput(true)}
+                className="px-2 py-1 h-7 text-xs">
+                + Add custom
+              </Button>
+            )}
+          </div>
+        </div>
+        
+        {/* Dietary Preferences section */}
+        <div>
+          <Label className="mb-2 block">Dietary Preferences</Label>
+          <div className="flex flex-wrap gap-2 mb-2">
+            {commonPreferences.map((preference) => (
+              <Badge 
+                key={preference}
+                variant={selectedPreferences.some(p => 
+                  p.toLowerCase() === preference.toLowerCase()
+                ) ? "default" : "outline"}
+                className={selectedPreferences.some(p => 
+                  p.toLowerCase() === preference.toLowerCase()
+                ) ? "bg-green-100 hover:bg-green-200 text-green-800 cursor-pointer" 
+                  : "bg-background hover:bg-slate-100 cursor-pointer"}
+                onClick={() => togglePreference(preference)}
+              >
+                {preference}
+              </Badge>
+            ))}
             
             <div>
               <Label className="block mb-2">Dietary Preferences</Label>
@@ -916,42 +684,41 @@ const EditProfileModal = (props: {
                   className="cursor-pointer hover:bg-secondary transition-colors px-3 py-1"
                   onClick={() => setShowCustomPreferenceInput(!showCustomPreferenceInput)}
                 >
-                  + Other
-                </Badge>
+                  <XCircleIcon className="h-4 w-4" />
+                </Button>
               </div>
-              
-              {showCustomPreferenceInput && (
-                <div className="flex gap-2 mb-3">
-                  <Input
-                    placeholder="Enter custom preference"
-                    value={customPreference}
-                    onChange={(e) => setCustomPreference(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addCustomPreference())}
-                  />
-                  <Button type="button" onClick={addCustomPreference}>Add</Button>
-                </div>
-              )}
-              
-              <input
-                type="hidden"
-                {...register("dietaryPreferences")}
-              />
-              
-              <p className="text-xs text-muted-foreground mt-2">
-                Click options above to add or remove dietary preferences
-              </p>
-            </div>
+            ) : (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setShowCustomPreferenceInput(true)}
+                className="px-2 py-1 h-7 text-xs">
+                + Add custom
+              </Button>
+            )}
           </div>
-          <div className="mt-6 flex justify-end">
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Saving..." : "Save changes"}
-            </Button>
-          </div>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-};
+        </div>
+        
+        <div className="flex justify-end gap-2">
+          <Button 
+            type="button" 
+            variant="outline" 
+            onClick={props.onClose}
+          >
+            Cancel
+          </Button>
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? "Saving..." : "Save changes"}
+          </Button>
+        </div>
+      </form>
+    </DialogContent>
+  </Dialog>
+);
+}
+
+
+
 
 const ChangePasswordModal = (props: { open: boolean; onClose: () => void }) => {
   const {
