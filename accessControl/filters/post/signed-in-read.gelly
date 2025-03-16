@@ -1,4 +1,4 @@
 filter ($session: Session, $user: User) on Post [
-  where status == "Active"
+  where (userId == $session.user.id) || (status == "Active")
 ]
-# structured filters: [{"type":"field_values_filter","field":"status","values":["Active"]}]
+# structured filters: [{"type":"or_filter","filters":[{"type":"tenant_filter","field":"userId"},{"type":"field_values_filter","field":"status","values":["Active"]}]}]

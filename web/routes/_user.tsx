@@ -7,6 +7,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Toaster } from "@/components/ui/sonner";
+import { ShareAByteLogo } from "@/components/ShareAByteLogo";
 import { useSignOut } from "@gadgetinc/react";
 import {
   Bell,
@@ -120,11 +121,7 @@ const NavBar = ({ user }: { user: any }) => {
           {/* Logo */}
           <div className="flex items-center">
             <Link to="/" className="flex items-center">
-              <img
-                src="/api/assets/autologo?background=dark"
-                alt="App name"
-                className="h-8 w-auto"
-              />
+              <ShareAByteLogo size="small" />
             </Link>
           </div>
 

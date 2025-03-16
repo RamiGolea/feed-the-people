@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, KeyboardEvent } from "react";
 import { useNavigate } from "react-router";
 import { api } from "../api";
 import { AutoForm, AutoInput, AutoSubmit, SubmitResultBanner } from "@/components/auto";
@@ -16,6 +16,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
+import { X, Plus } from "lucide-react";
 import { 
   Form, 
   FormControl, 
@@ -39,6 +41,11 @@ const PostCreationPage = () => {
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [goBadDate, setGoBadDate] = useState<Date | undefined>(undefined);
+  const [selectedAllergens, setSelectedAllergens] = useState<string[]>([]);
+  const [customAllergen, setCustomAllergen] = useState<string>("");
+  const [customAllergens, setCustomAllergens] = useState<string[]>([]);
+  
+  const commonAllergens = ["Nuts", "Dairy", "Eggs", "Wheat", "Shellfish", "Soy", "Fish"];
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
@@ -94,14 +101,47 @@ const PostCreationPage = () => {
     },
   });
 
+  const toggleAllergen = (allergen: string) => {
+    setSelectedAllergens(prev => 
+      prev.includes(allergen)
+        ? prev.filter(a => a !== allergen)
+        : [...prev, allergen]
+    );
+  };
+
+  const addCustomAllergen = () => {
+    if (customAllergen.trim() !== "" && !customAllergens.includes(customAllergen.trim())) {
+      setCustomAllergens(prev => [...prev, customAllergen.trim()]);
+      setCustomAllergen("");
+    }
+  };
+
+  const handleCustomAllergenKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addCustomAllergen();
+    }
+  };
+
+  const removeCustomAllergen = (allergen: string) => {
+    setCustomAllergens(prev => prev.filter(a => a !== allergen));
+  };
+
+  const getAllergenString = (): string => {
+    const allAllergens = [...selectedAllergens, ...customAllergens];
+    return allAllergens.length > 0 ? allAllergens.join(", ") : "";
+  };
+
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
+      const allergenString = getAllergenString();
+      
       const result = await api.post.create({
         title: values.title,
         description: values.description,
         location: values.location || null,
         category: values.category,
-        foodAllergens: values.foodAllergens || null,
+        foodAllergens: allergenString || null,
         goBadDate: values.goBadDate || null,
         images: uploadedImages.length > 0 ? JSON.stringify(uploadedImages) : null,
         status: "Active",
@@ -210,7 +250,67 @@ const PostCreationPage = () => {
                     <FormItem>
                       <FormLabel>Food Allergens (Optional)</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g. Nuts, Dairy, Gluten" {...field} />
+                        <div className="space-y-3">
+                          <div className="flex flex-wrap gap-2">
+                            {commonAllergens.map(allergen => (
+                              <Badge 
+                                key={allergen}
+                                variant={selectedAllergens.includes(allergen) ? "default" : "outline"}
+                                className={`cursor-pointer ${selectedAllergens.includes(allergen) ? 'bg-primary' : ''}`}
+                                onClick={() => toggleAllergen(allergen)}
+                              >
+                                {allergen}
+                                {selectedAllergens.includes(allergen) && (
+                                  <X className="ml-1 h-3 w-3" />
+                                )}
+                              </Badge>
+                            ))}
+                          </div>
+                          
+                          {customAllergens.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              {customAllergens.map(allergen => (
+                                <Badge 
+                                  key={allergen}
+                                  variant="default"
+                                  className="bg-primary cursor-pointer"
+                                >
+                                  {allergen}
+                                  <X 
+                                    className="ml-1 h-3 w-3" 
+                                    onClick={() => removeCustomAllergen(allergen)}
+                                  />
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+                          
+                          <div className="flex gap-2">
+                            <Input
+                              value={customAllergen}
+                              onChange={(e) => setCustomAllergen(e.target.value)}
+                              onKeyDown={handleCustomAllergenKeyDown}
+                              placeholder="Add custom allergen"
+                              className="flex-grow"
+                            />
+                            <Button 
+                              type="button" 
+                              size="sm" 
+                              variant="outline"
+                              onClick={addCustomAllergen}
+                              disabled={customAllergen.trim() === ""}
+                            >
+                              <Plus className="h-4 w-4 mr-1" />
+                              Add
+                            </Button>
+                          </div>
+                          
+                          <input
+                            type="hidden"
+                            {...field}
+                            value={getAllergenString()}
+                          />
+                        </div>
                       </FormControl>
                       <FormMessage />
                     </FormItem>

@@ -1,8 +1,10 @@
-import { useParams } from "react-router";
-import { useFindOne, useFindMany, useAction, useSession } from "@gadgetinc/react";
+import { useNavigate, useParams } from "react-router";
+import { useFindOne, useFindMany, useAction, useSession, useUser } from "@gadgetinc/react";
 import { api } from "../api";
 import React, { useEffect, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,11 +13,32 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AutoForm, AutoInput, AutoSubmit, AutoHiddenInput } from "../components/auto";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Apple, Beef, Carrot, ChefHat, Egg, Fish, Leaf, Wheat } from "lucide-react";
+import { Apple, Beef, Carrot, ChefHat, Egg, Fish, Leaf, Wheat } from "lucide-react";
 
 export default function PostDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
-  // Fetch post details
+  // Setup delete action
+  const [{ fetching: deleteFetching, error: deleteError }, deletePost] = useAction(api.post.delete);
+
+  // Handle post deletion
+  const handleDeletePost = async () => {
+    try {
+      await deletePost({ id });
+      toast.success("Post deleted successfully");
+      navigate("/signed-in");
+    } catch (error) {
+      toast.error("Failed to delete post: " + (error instanceof Error ? error.message : String(error)));
+    } finally {
+      setDeleteDialogOpen(false);
+    }
+  };
+
+  // Fetch post details with dietary preferences
   const [{ data: post, error: postError, fetching: fetchingPost }, refreshPost] = useFindOne(api.post, id!, {
     select: {
       id: true,
@@ -32,15 +55,101 @@ export default function PostDetail() {
         firstName: true,
         lastName: true,
         email: true,
+        dietaryPreferences: true,
       },
     },
   });
+
+  // Component to display dietary preference icons with tooltips
+  const DietaryIcons = ({ dietaryPreferences }: { dietaryPreferences?: string | null }) => {
+    if (!dietaryPreferences) return null;
+    
+    // Parse dietary preferences from string (assuming comma-separated values)
+    const preferences = dietaryPreferences.split(',').map(pref => pref.trim().toLowerCase());
+    
+    // Define icon mappings and their tooltips
+    const dietaryIcons = [
+      { 
+        id: 'vegetarian', 
+        keywords: ['vegetarian', 'veg'], 
+        icon: <Carrot className="h-4 w-4 text-orange-500" />, 
+        tooltip: 'Vegetarian' 
+      },
+      { 
+        id: 'vegan', 
+        keywords: ['vegan', 'plant-based'], 
+        icon: <Leaf className="h-4 w-4 text-green-600" />, 
+        tooltip: 'Vegan/Plant-based' 
+      },
+      { 
+        id: 'pescatarian', 
+        keywords: ['pescatarian', 'fish'], 
+        icon: <Fish className="h-4 w-4 text-blue-500" />, 
+        tooltip: 'Pescatarian' 
+      },
+      { 
+        id: 'gluten-free', 
+        keywords: ['gluten-free', 'gluten free', 'no gluten'], 
+        icon: <Wheat className="h-4 w-4 text-amber-600" />, 
+        tooltip: 'Gluten-Free' 
+      },
+      { 
+        id: 'dairy-free', 
+        keywords: ['dairy-free', 'dairy free', 'no dairy'], 
+        icon: <Egg className="h-4 w-4 text-yellow-400" />, 
+        tooltip: 'Dairy-Free' 
+      },
+      { 
+        id: 'paleo', 
+        keywords: ['paleo', 'caveman', 'paleolithic'], 
+        icon: <Beef className="h-4 w-4 text-red-600" />, 
+        tooltip: 'Paleo' 
+      },
+      { 
+        id: 'organic', 
+        keywords: ['organic', 'bio'], 
+        icon: <Apple className="h-4 w-4 text-green-500" />, 
+        tooltip: 'Organic' 
+      },
+      { 
+        id: 'chef', 
+        keywords: ['chef', 'cook', 'culinary'], 
+        icon: <ChefHat className="h-4 w-4 text-gray-500" />, 
+        tooltip: 'Chef/Culinary Professional' 
+      }
+    ];
+
+    // Display only icons that match user preferences
+    const matchedIcons = dietaryIcons.filter(icon => 
+      icon.keywords.some(keyword => 
+        preferences.some(pref => pref.includes(keyword))
+      )
+    );
+
+    return (
+      <TooltipProvider>
+        <span className="flex items-center ml-2 gap-1">
+          {matchedIcons.map((icon, index) => (
+            <Tooltip key={icon.id} delayDuration={300}>
+              <TooltipTrigger asChild>
+                <span className="inline-block cursor-help">{icon.icon}</span>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-xs">{icon.tooltip}</p>
+              </TooltipContent>
+            </Tooltip>
+          ))}
+        </span>
+      </TooltipProvider>
+    );
+  };
 
   // Get current user session
   const session = useSession(api);
 
   const currentUserId = session?.user?.id;
   const postOwnerId = post?.user?.id;
+  const isPostOwner = currentUserId === postOwnerId;
 
   // Fetch messages between current user and post owner with live updates
   const [{ data: messages, error: messagesError, fetching: fetchingMessages }, refreshMessages] = useFindMany(api.message, {
@@ -191,15 +300,56 @@ export default function PostDetail() {
   return (
     <div className="container mx-auto p-4 grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* Post Details - Left Column */}
-      <Card>
+      <Card className={isPostOwner ? "lg:col-span-2" : ""}>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle className="text-2xl font-bold">{post.title}</CardTitle>
-            <Badge variant={post.category === "leftovers" ? "secondary" : "default"}>
-              {post.category === "leftovers" ? "Leftovers" : "Perishables"}
-            </Badge>
+            <div className="flex-1">
+              <CardTitle className="text-2xl font-bold">{post.title}</CardTitle>
+            </div>
+            <div className="flex items-center gap-2">
+              {isPostOwner && (
+                <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                  <Button 
+                    variant="destructive" 
+                    size="sm"
+                    onClick={() => setDeleteDialogOpen(true)}
+                  >
+                    Delete
+                  </Button>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Delete Post</DialogTitle>
+                      <DialogDescription>
+                        Are you sure you want to delete this post? This action cannot be undone.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="flex items-center justify-end gap-2 pt-4">
+                      <Button
+                        variant="outline"
+                        onClick={() => setDeleteDialogOpen(false)}
+                      >
+                        Cancel
+                      </Button>
+                      <Button 
+                        variant="destructive"
+                        onClick={handleDeletePost}
+                        disabled={deleteFetching}
+                      >
+                        {deleteFetching ? "Deleting..." : "Delete"}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              )}
+              <Badge variant={post.category === "leftovers" ? "secondary" : "default"}>
+                {post.category === "leftovers" ? "Leftovers" : "Perishables"}
+              </Badge>
+            </div>
           </div>
-          <CardDescription>Posted by {post.user?.firstName} {post.user?.lastName}</CardDescription>
+          <CardDescription className="flex items-center">
+            Posted by {post.user?.firstName} {post.user?.lastName}
+            <DietaryIcons dietaryPreferences={post.user?.dietaryPreferences} />
+          </CardDescription>
           <CardDescription className="mt-1 text-sm text-gray-500">Owner ID: {post.user?.id}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -320,12 +470,20 @@ export default function PostDetail() {
         </CardContent>
       </Card>
 
-      {/* Chat Interface - Right Column */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Message {post.user?.firstName || "Owner"}</CardTitle>
-          <CardDescription>Chat about this food item</CardDescription>
-        </CardHeader>
+      {/* Error display for delete action */}
+      {deleteError && (
+        <div className="mb-4 p-3 bg-red-50 text-red-500 rounded-md">
+          Error deleting post: {deleteError.toString()}
+        </div>
+      )}
+      
+      {/* Chat Interface - Right Column (Only shows if not post owner) */}
+      {!isPostOwner && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Message {post.user?.firstName || "Owner"}</CardTitle>
+            <CardDescription>Chat about this food item</CardDescription>
+          </CardHeader>
 
         <CardContent>
           <ScrollArea className="h-[400px] pr-4">
@@ -396,6 +554,17 @@ export default function PostDetail() {
           </AutoForm>
         </CardFooter>
       </Card>
+   
+      {/* Own Post Notice - Shows instead of chat when user is post owner */}
+      {isPostOwner && (
+        <Card className="lg:hidden">
+          <CardContent className="flex flex-col items-center justify-center p-6">
+            <div className="text-center text-gray-500 py-10">
+              This is your own post. You cannot message yourself.
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
