@@ -38,6 +38,48 @@ import {
   MapPinIcon
 } from "lucide-react";
 
+// Component to display emojis for dietary preferences
+const DietaryPreferenceEmoji = ({ preference }: { preference: string }) => {
+  // Map preference to appropriate emoji
+  const emojiMap: Record<string, { emoji: string, description: string }> = {
+    "vegetarian": { emoji: "🥗", description: "Vegetarian diet" },
+    "vegan": { emoji: "🌱", description: "Vegan diet" },
+    "gluten-free": { emoji: "🌾❌", description: "Gluten-free diet" },
+    "gluten free": { emoji: "🌾❌", description: "Gluten-free diet" },
+    "dairy-free": { emoji: "🥛❌", description: "Dairy-free diet" },
+    "dairy free": { emoji: "🥛❌", description: "Dairy-free diet" },
+    "keto": { emoji: "🥩🥑", description: "Ketogenic diet" },
+    "paleo": { emoji: "🍖🥬", description: "Paleolithic diet" },
+    "pescatarian": { emoji: "🐟🥗", description: "Pescatarian diet" },
+    "low-carb": { emoji: "🍞↓", description: "Low-carbohydrate diet" },
+    "low carb": { emoji: "🍞↓", description: "Low-carbohydrate diet" },
+    "kosher": { emoji: "✡️", description: "Kosher diet" },
+    "halal": { emoji: "☪️", description: "Halal diet" },
+    "organic": { emoji: "🌿", description: "Prefers organic food" },
+    "raw": { emoji: "🥒🥕", description: "Raw food diet" }
+  };
+
+  const normalizedPreference = preference.toLowerCase().trim();
+  const preferenceInfo = emojiMap[normalizedPreference];
+  
+  if (!preferenceInfo) {
+    return null; // No emoji for this preference
+  }
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger className="cursor-default">
+          <span className="mr-1" aria-hidden="true">{preferenceInfo.emoji}</span>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>{preferenceInfo.description}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+};
+
 export default function () {
   const { user: contextUser } = useOutletContext<AuthOutletContext>();
   const user = useUser(api); // Get the most up-to-date user data
@@ -275,6 +317,7 @@ export default function () {
                     {user.dietaryPreferences ? (
                       user.dietaryPreferences.split(',').map((preference, index) => (
                         <Badge key={index} variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                          <DietaryPreferenceEmoji preference={preference.trim()} />
                           {preference.trim()}
                         </Badge>
                       ))
@@ -585,50 +628,61 @@ return (
               </Badge>
             ))}
             
-            {/* Custom preferences */}
-            {customPreferences.map((preference) => (
-              <Badge 
-                key={preference}
-                variant={selectedPreferences.some(p => 
-                  p.toLowerCase() === preference.toLowerCase()
-                ) ? "default" : "outline"}
-                className={selectedPreferences.some(p => 
-                  p.toLowerCase() === preference.toLowerCase()
-                ) ? "bg-green-100 hover:bg-green-200 text-green-800 cursor-pointer group" 
-                  : "bg-background hover:bg-slate-100 cursor-pointer group"}
-              >
-                <span onClick={() => togglePreference(preference)}>{preference}</span>
-                <XCircleIcon 
-                  className="h-3.5 w-3.5 ml-1 opacity-50 group-hover:opacity-100"
-                  onClick={() => removeCustomPreference(preference)} 
-                />
-              </Badge>
-            ))}
-            
-            {showCustomPreferenceInput ? (
-              <div className="flex items-center gap-2">
-                <Input
-                  value={customPreference}
-                  onChange={(e) => setCustomPreference(e.target.value)}
-                  className="h-8"
-                  placeholder="Enter preference"
-                />
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={addCustomPreference}
-                  className="h-8"
-                >
-                  Add
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => {
-                    setCustomPreference("");
-                    setShowCustomPreferenceInput(false);
-                  }}
-                  className="h-8 p-0 w-8"
+            <div>
+              <Label className="block mb-2">Dietary Preferences</Label>
+              
+              <div className="flex flex-wrap gap-2 mb-3">
+                {/* Common preferences */}
+                {commonPreferences.map((preference) => (
+                  <Badge
+                    key={preference}
+                    variant="outline"
+                    className={`cursor-pointer hover:bg-secondary transition-colors px-3 py-1 ${
+                      selectedPreferences.some(
+                        (p) => p.toLowerCase() === preference.toLowerCase()
+                      )
+                        ? "bg-green-50 text-green-700 border-green-200"
+                        : ""
+                    }`}
+                    onClick={() => togglePreference(preference)}
+                  >
+                    <DietaryPreferenceEmoji preference={preference} />
+                    {preference}
+                  </Badge>
+                ))}
+                
+                {/* Custom preferences */}
+                {customPreferences.map((preference) => (
+                  <Badge
+                    key={`custom-${preference}`}
+                    variant="outline"
+                    className={`cursor-pointer hover:bg-secondary transition-colors px-3 py-1 flex items-center gap-1 ${
+                      selectedPreferences.some(
+                        (p) => p.toLowerCase() === preference.toLowerCase()
+                      )
+                        ? "bg-green-50 text-green-700 border-green-200"
+                        : "bg-teal-50 text-teal-700 border-teal-200"
+                    }`}
+                    onClick={() => togglePreference(preference)}
+                  >
+                    <DietaryPreferenceEmoji preference={preference} />
+                    {preference}
+                    <span 
+                      className="ml-1 rounded-full bg-gray-200 w-4 h-4 flex items-center justify-center text-xs text-gray-600 hover:bg-gray-300"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeCustomPreference(preference);
+                      }}
+                    >
+                      ×
+                    </span>
+                  </Badge>
+                ))}
+                
+                <Badge
+                  variant="outline"
+                  className="cursor-pointer hover:bg-secondary transition-colors px-3 py-1"
+                  onClick={() => setShowCustomPreferenceInput(!showCustomPreferenceInput)}
                 >
                   <XCircleIcon className="h-4 w-4" />
                 </Button>
