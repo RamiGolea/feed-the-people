@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useFindMany, useFindOne, useAction, useUser } from "@gadgetinc/react";
+import { flushSync } from "react-dom";
 import { useSearchParams } from "react-router";
 import { api } from "../api";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -7,15 +8,115 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { MessageSquare } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { MessageSquare, X, MoreHorizontal } from "lucide-react";
+import { toast } from "sonner";
 
 export default function DirectMessages() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const userIdParam = searchParams.get("userId");
   const [selectedUserId, setSelectedUserId] = useState<string | null>(userIdParam);
   const [messageInput, setMessageInput] = useState("");
   const currentUser = useUser();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  
+  // State to track newly arrived messages for highlighting
+  const [newMessageIds, setNewMessageIds] = useState<Set<string>>(new Set());
+  
+  // Counter to force UI updates when new messages arrive
+  const [messageChangeCounter, setMessageChangeCounter] = useState(0);
+  
+  // State for the pop-up notification
+  const [currentNotification, setCurrentNotification] = useState<{
+    id: string;
+    sender: string;
+    message: string;
+    userId: string;
+  } | null>(null);
+  
+  // Ref to store seen message IDs to avoid showing duplicate notifications
+  const seenMessageIdsRef = useRef<Set<string>>(new Set());
+  // Ref to store unread message counts by user
+  const unreadCountsRef = useRef<Record<string, number>>({});
+  // State to track user activity for adaptive polling
+  const [isUserActive, setIsUserActive] = useState(true);
+  // State to simulate typing indicators
+  const [typingUsers, setTypingUsers] = useState<Record<string, boolean>>({});
+  // Timer for resetting typing indicator
+  const typingTimerRef = useRef<Record<string, NodeJS.Timeout>>({});
+  // Last activity timestamp
+  const lastActivityRef = useRef<number>(Date.now());
+  
+  // Debug logging flag
+  const debugMode = true;
+  
+  // Function to force UI updates when new messages arrive
+  const forceUIUpdate = useCallback(() => {
+    if (debugMode) console.log("🔄 forceUIUpdate called - Forcing UI refresh");
+    
+    // Update state to trigger a re-render
+    flushSync(() => {
+      setMessageChangeCounter(prev => {
+        if (debugMode) console.log(`🔢 Incrementing messageChangeCounter: ${prev} → ${prev + 1}`);
+        return prev + 1;
+      });
+    });
+    
+    // Direct DOM manipulation for immediate visual feedback
+    const messagesContainer = document.querySelector('.messages-scroll-area');
+    if (messagesContainer) {
+      if (debugMode) console.log("📌 Found messages container, applying visual update indicator");
+      // Add a quick flash effect to the scroll area to indicate new content
+      messagesContainer.classList.add('new-message-flash');
+      setTimeout(() => {
+        messagesContainer.classList.remove('new-message-flash');
+      }, 300);
+    }
+    
+    // Force scroll to bottom with direct DOM manipulation
+    if (messagesEndRef.current) {
+      if (debugMode) console.log("⬇️ Forcing scroll to latest message");
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, []);
 
+  // Track user activity for adaptive polling
+  useEffect(() => {
+    // Check if user is active every 30 seconds
+    const activityInterval = setInterval(() => {
+      const now = Date.now();
+      if (now - lastActivityRef.current > 60000) { // 1 minute without activity
+        setIsUserActive(false);
+      }
+    }, 30000);
+    
+    // Activity event listeners
+    const handleActivity = () => {
+      lastActivityRef.current = Date.now();
+      setIsUserActive(true);
+    };
+    
+    // Add event listeners for user activity
+    window.addEventListener('mousedown', handleActivity);
+    window.addEventListener('keydown', handleActivity);
+    window.addEventListener('mousemove', handleActivity);
+    window.addEventListener('touchstart', handleActivity);
+    window.addEventListener('focus', handleActivity);
+    
+    // Set initial activity
+    handleActivity();
+    
+    return () => {
+      clearInterval(activityInterval);
+      window.removeEventListener('mousedown', handleActivity);
+      window.removeEventListener('keydown', handleActivity);
+      window.removeEventListener('mousemove', handleActivity);
+      window.removeEventListener('touchstart', handleActivity);
+      window.removeEventListener('focus', handleActivity);
+    };
+  }, []);
+  
   // Fetch all messages for the current user to determine conversation partners
   const [{ data: allUserMessages, fetching: loadingAllMessages, error: allMessagesError }] = useFindMany(api.message, {
     filter: {
@@ -28,6 +129,8 @@ export default function DirectMessages() {
       id: true,
       userId: true,
       recipient: true,
+      content: true,
+      createdAt: true,
       user: {
         id: true,
         firstName: true,
@@ -37,14 +140,42 @@ export default function DirectMessages() {
       }
     },
     live: true, // Enable real-time updates for new conversations
+    pollInterval: isUserActive ? 2000 : 10000, // Poll more frequently when user is active
   });
   
-  // Extract unique user IDs from messages (conversation partners)
+  // Dedicated live query for monitoring new incoming messages across all conversations
+  const [{ data: incomingMessages }] = useFindMany(api.message, {
+    filter: {
+      AND: [
+        { recipient: { equals: currentUser?.id } }, // Only messages sent to current user
+        { userId: { notEquals: currentUser?.id } }, // Not messages sent by current user
+      ]
+    },
+    sort: { createdAt: "Descending" }, // Most recent first
+    select: {
+      id: true,
+      content: true,
+      createdAt: true,
+      userId: true,
+      user: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        googleImageUrl: true,
+      }
+    },
+    live: true, // Enable real-time updates
+    pollInterval: isUserActive ? 1500 : 5000, // Even faster polling for direct messages when active
+  });
+  
+  // Extract unique user IDs from messages and track unread messages
   const conversationUserIds = useMemo(() => {
     if (!allUserMessages || !currentUser) return [];
     
     // Get unique user IDs from both sent and received messages
     const uniqueUserIds = new Set<string>();
+    const tempUnreadCounts: Record<string, number> = {};
     
     allUserMessages.forEach(message => {
       // Add the other user's ID to our set (either sender or recipient)
@@ -54,11 +185,185 @@ export default function DirectMessages() {
       } else if (message.recipient === currentUser.id) {
         // This is a message someone sent to the current user
         uniqueUserIds.add(message.userId);
+        
+        // Check if this is a new message we haven't seen yet
+        if (!seenMessageIdsRef.current.has(message.id)) {
+          // Count as unread if not from the currently selected conversation
+          if (message.userId !== selectedUserId) {
+            tempUnreadCounts[message.userId] = (tempUnreadCounts[message.userId] || 0) + 1;
+          } else {
+            // If from the selected conversation, mark as seen
+            seenMessageIdsRef.current.add(message.id);
+          }
+        }
       }
     });
     
+    // Update unread counts ref
+    unreadCountsRef.current = tempUnreadCounts;
+    
     return Array.from(uniqueUserIds);
-  }, [allUserMessages, currentUser]);
+  }, [allUserMessages, currentUser, selectedUserId]);
+  
+  // Auto-scroll to bottom when new messages arrive
+  const scrollToBottom = useCallback(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, []);
+  
+  // Simulate typing indicators based on user activity
+  const simulateTypingIndicator = useCallback((userId: string) => {
+    // Only show typing indicator if we're currently viewing that user's conversation
+    if (selectedUserId === userId) {
+      setTypingUsers(prev => ({ ...prev, [userId]: true }));
+      
+      // Clear any existing timeout for this user
+      if (typingTimerRef.current[userId]) {
+        clearTimeout(typingTimerRef.current[userId]);
+      }
+      
+      // Set timeout to remove typing indicator after random interval (2-4 seconds)
+      const randomDuration = Math.floor(Math.random() * 2000) + 2000;
+      typingTimerRef.current[userId] = setTimeout(() => {
+        setTypingUsers(prev => ({ ...prev, [userId]: false }));
+      }, randomDuration);
+    }
+  }, [selectedUserId]);
+  
+  // Dedicated effect for handling new messages and auto-scrolling
+  useEffect(() => {
+    // Check if there are messages with IDs in the newMessageIds set
+    if (newMessageIds.size > 0 && selectedUserId) {
+      if (debugMode) console.log(`🔍 Detected ${newMessageIds.size} new messages in highlight set`);
+      
+      // Force an immediate UI update
+      forceUIUpdate();
+      
+      // Schedule a scroll after a brief delay to ensure the DOM has updated
+      const scrollTimeout = setTimeout(() => {
+        scrollToBottom();
+      }, 50);
+      
+      return () => clearTimeout(scrollTimeout);
+    }
+  }, [newMessageIds, selectedUserId, scrollToBottom, forceUIUpdate]);
+  
+  // Effect to debug when the messageChangeCounter updates
+  useEffect(() => {
+    if (debugMode) console.log(`🔄 Component re-rendered due to messageChangeCounter: ${messageChangeCounter}`);
+  }, [messageChangeCounter]);
+
+  // Process new incoming messages for notifications
+  useEffect(() => {
+    if (!incomingMessages || !currentUser) return;
+    
+    if (debugMode) console.log(`📩 Processing ${incomingMessages.length} incoming messages`);
+    
+    let newUnreadCounts: Record<string, number> = {...unreadCountsRef.current};
+    let hasNewMessages = false;
+    
+    // Check for new messages that haven't been seen yet
+    incomingMessages.forEach(message => {
+      // Only process messages to the current user that we haven't seen yet
+      if (
+        message.recipient === currentUser.id && 
+        message.userId !== currentUser.id && 
+        !seenMessageIdsRef.current.has(message.id)
+      ) {
+        if (debugMode) console.log(`🆕 New message detected: ${message.id}`);
+        hasNewMessages = true;
+        
+        // If not viewing the conversation with this sender, show a notification
+        if (message.userId !== selectedUserId) {
+          // Show toast notification
+          toast.message(`New message from ${message.user?.firstName || 'User'}`, {
+            description: message.content,
+            action: {
+              label: "View",
+              onClick: () => {
+                // Navigate to that conversation
+                setSelectedUserId(message.userId);
+                setSearchParams({ userId: message.userId });
+              },
+            },
+          });
+          
+          // Also trigger the pop-up notification
+          setCurrentNotification({
+            id: message.id,
+            sender: message.user?.firstName || 'User',
+            message: message.content,
+            userId: message.userId
+          });
+          
+          // Auto-dismiss the notification after 5 seconds
+          setTimeout(() => {
+            setCurrentNotification(current => 
+              current?.id === message.id ? null : current
+            );
+          }, 5000);
+          
+          // Update unread count for this sender
+          newUnreadCounts[message.userId] = (newUnreadCounts[message.userId] || 0) + 1;
+          
+          // Simulate the other user typing occasionally (40% chance)
+          if (Math.random() > 0.6) {
+            setTimeout(() => {
+              simulateTypingIndicator(message.userId);
+            }, 5000 + Math.random() * 10000); // Random delay 5-15 seconds
+          }
+        } else {
+          // If we're already viewing this conversation, mark as seen
+          seenMessageIdsRef.current.add(message.id);
+          
+          // Add to new message IDs for highlight effect
+          flushSync(() => {
+            setNewMessageIds(prev => {
+              const updated = new Set(prev);
+              updated.add(message.id);
+              if (debugMode) console.log(`✨ Adding message ${message.id} to highlighted messages`);
+              return updated;
+            });
+          });
+          
+          // Force UI update to immediately reflect the new message
+          forceUIUpdate();
+          
+          // Set timeout to remove highlight after 4 seconds (extended from 3)
+          setTimeout(() => {
+            setNewMessageIds(prev => {
+              const updated = new Set(prev);
+              updated.delete(message.id);
+              return updated;
+            });
+          }, 4000);
+        }
+      }
+    });
+    
+    // Update the unread counts ref
+    if (hasNewMessages) {
+      unreadCountsRef.current = newUnreadCounts;
+      if (debugMode) console.log(`📊 Updated unread message counts`, unreadCountsRef.current);
+      
+      // Force an additional UI update to ensure everything is in sync
+      setTimeout(forceUIUpdate, 100);
+    }
+    
+  }, [incomingMessages, currentUser, selectedUserId, setSearchParams, scrollToBottom, simulateTypingIndicator, forceUIUpdate]);
+
+  // Handler to dismiss the notification manually
+  const dismissNotification = useCallback(() => {
+    setCurrentNotification(null);
+  }, []);
+  
+  // Clear notification when changing to the sender's conversation
+  useEffect(() => {
+    if (currentNotification && selectedUserId === currentNotification.userId) {
+      setCurrentNotification(null);
+    }
+  }, [selectedUserId, currentNotification]);
 
   // Fetch all users who have conversations with the current user
   const [{ data: users, fetching: loadingUsers, error: usersError }] = useFindMany(api.user, {
@@ -116,6 +421,7 @@ export default function DirectMessages() {
       },
       sort: { createdAt: "Ascending" },
       live: true, // Enable real-time updates
+      pollInterval: isUserActive ? 1000 : 5000, // Poll every second when active for selected conversation
       select: {
         id: true,
         content: true,
@@ -129,8 +435,19 @@ export default function DirectMessages() {
         },
         recipient: true,
       },
+      pause: !selectedUserId, // Only run when we have a selected user
     }
   );
+
+  // Mark messages as seen when they appear in the conversation view
+  useEffect(() => {
+    if (messages && messages.length > 0 && currentUser) {
+      messages.forEach(message => {
+        // Add message ID to seen messages set
+        seenMessageIdsRef.current.add(message.id);
+      });
+    }
+  }, [messages, currentUser]);
 
   // Send message action
   const [{ fetching: sendingMessage }, sendMessage] = useAction(api.message.create);
@@ -139,7 +456,7 @@ export default function DirectMessages() {
   const handleSendMessage = async () => {
     if (!messageInput.trim() || !selectedUserId || !currentUser) return;
 
-    await sendMessage({
+    const result = await sendMessage({
       content: messageInput,
       recipient: selectedUserId,
       user: {
@@ -149,6 +466,31 @@ export default function DirectMessages() {
 
     setMessageInput("");
     refreshMessages();
+    
+    // Add the newly sent message to the new messages set for highlighting
+    if (result?.data?.id) {
+      if (debugMode) console.log(`✉️ Message sent successfully: ${result.data.id}`);
+        
+      flushSync(() => {
+        setNewMessageIds(prev => {
+          const updated = new Set(prev);
+          updated.add(result.data.id);
+          return updated;
+        });
+      });
+        
+      // Force UI update with the new message
+      forceUIUpdate();
+      
+      // Set timeout to remove highlight after 3 seconds
+      setTimeout(() => {
+        setNewMessageIds(prev => {
+          const updated = new Set(prev);
+          updated.delete(result.data.id);
+          return updated;
+        });
+      }, 3000);
+    }
   };
 
   // Users with conversations are already filtered to only include those who've exchanged messages
@@ -162,20 +504,160 @@ export default function DirectMessages() {
     ? (selectedUserData || users?.find(user => user.id === selectedUserId))
     : null;
 
-  // Effect to scroll to messages when they load
+  // Mark messages as read when viewing a conversation
+  useEffect(() => {
+    if (selectedUserId) {
+      // Mark all messages from this user as seen
+      if (incomingMessages) {
+        incomingMessages.forEach(message => {
+          if (message.userId === selectedUserId) {
+            seenMessageIdsRef.current.add(message.id);
+          }
+        });
+      }
+      
+      // Reset unread count for this user
+      if (unreadCountsRef.current[selectedUserId]) {
+        unreadCountsRef.current[selectedUserId] = 0;
+      }
+    }
+  }, [selectedUserId, incomingMessages]);
+  
+  // Auto-scroll to bottom when messages load
   useEffect(() => {
     // If we have a selectedUserId from URL, auto-scroll to messages
     if (selectedUserId && !loadingMessages && messages?.length) {
-      const messagesContainer = document.querySelector('.messages-scroll-area');
-      if (messagesContainer) {
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      if (debugMode) console.log(`📜 Messages loaded, scrolling to bottom (${messages.length} messages)`);
+      
+      // Use slight delay to ensure DOM is updated
+      setTimeout(() => {
+        scrollToBottom();
+        // Force a UI update after scrolling to ensure everything is rendered
+        forceUIUpdate();
+      }, 50);
+    }
+  }, [selectedUserId, loadingMessages, messages, scrollToBottom, forceUIUpdate, messageChangeCounter]);
+  
+  // Reset new message IDs when changing conversations
+  useEffect(() => {
+    setNewMessageIds(new Set());
+  }, [selectedUserId]);
+  
+  // Add CSS animations via useEffect only on the client side
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      // Check if styles already exist to avoid duplicates
+      if (!document.getElementById('message-notification-styles')) {
+        const styleElement = document.createElement('style');
+        styleElement.id = 'message-notification-styles';
+        styleElement.textContent = `
+          @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+          
+          @keyframes newMessageFlash {
+            0% { background-color: rgba(var(--primary-rgb), 0.05); }
+            50% { background-color: rgba(var(--primary-rgb), 0.1); }
+            100% { background-color: transparent; }
+          }
+          
+          .new-message-flash {
+            animation: newMessageFlash 0.3s ease-out;
+          }
+          
+          @keyframes fadeOut {
+            from { opacity: 1; transform: translateY(0); }
+            to { opacity: 0; transform: translateY(10px); }
+          }
+          
+          @keyframes pulse {
+            0% { box-shadow: 0 0 0 0px rgba(var(--primary-rgb), 0.4); }
+            50% { box-shadow: 0 0 0 4px rgba(var(--primary-rgb), 0.2); }
+            100% { box-shadow: 0 0 0 0px rgba(var(--primary-rgb), 0.1); }
+          }
+          
+          @keyframes slideIn {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+          }
+          
+          @keyframes typingDot {
+            0% { opacity: 0.3; transform: translateY(0px); }
+            50% { opacity: 1; transform: translateY(-2px); }
+            100% { opacity: 0.3; transform: translateY(0px); }
+          }
+          
+          .animate-fade-in {
+            animation: fadeIn 0.3s ease forwards;
+          }
+          
+          .animate-fade-out {
+            animation: fadeOut 0.3s ease forwards;
+          }
+          
+          .animate-slide-in {
+            animation: slideIn 0.4s ease forwards;
+          }
+          
+          .animate-pulse-shadow {
+            animation: pulse 2s infinite;
+          }
+          
+          .typing-dot:nth-child(1) { animation: typingDot 1s infinite 0.1s; }
+          .typing-dot:nth-child(2) { animation: typingDot 1s infinite 0.2s; }
+          .typing-dot:nth-child(3) { animation: typingDot 1s infinite 0.3s; }
+          
+          .new-message {
+            animation: slideIn 0.4s ease forwards, pulse 2s 0.4s;
+          }
+        `;
+        document.head.appendChild(styleElement);
       }
     }
-  }, [selectedUserId, loadingMessages, messages]);
+  }, []);
 
   return (
-    <div className="container mx-auto py-6">
+    <div className="container mx-auto py-6 relative">
       <h1 className="text-2xl font-bold mb-6">Direct Messages</h1>
+      
+      {/* Pop-up notification for new messages */}
+      {currentNotification && (
+        <div className="fixed bottom-6 right-6 z-50 animate-fade-in">
+          <div className="bg-card border shadow-lg rounded-lg p-4 max-w-[300px] relative">
+            <button 
+              onClick={dismissNotification}
+              className="absolute top-2 right-2 text-muted-foreground hover:text-foreground"
+              aria-label="Dismiss notification"
+            >
+              <X size={16} />
+            </button>
+            
+            <div className="flex items-start space-x-3">
+              <div className="bg-primary rounded-full p-2 text-primary-foreground">
+                <MessageSquare size={16} />
+              </div>
+              <div>
+                <p className="font-semibold text-sm">{currentNotification.sender}</p>
+                <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
+                  {currentNotification.message}
+                </p>
+                <Button 
+                  variant="link" 
+                  className="text-xs p-0 h-auto mt-1"
+                  onClick={() => {
+                    setSelectedUserId(currentNotification.userId);
+                    setSearchParams({ userId: currentNotification.userId });
+                    dismissNotification();
+                  }}
+                >
+                  View conversation
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Users List */}
         <div>
@@ -201,25 +683,40 @@ export default function DirectMessages() {
                   </div>
                 ) : (
                   <ul className="space-y-2">
-                    {otherUsers.map((user) => (
-                      <li key={user.id}>
-                        <Button
-                          variant={selectedUserId === user.id ? "default" : "ghost"}
-                          className="w-full justify-start"
-                          onClick={() => setSelectedUserId(user.id)}
-                        >
-                          <Avatar className="h-6 w-6 mr-2">
-                            <AvatarImage src={user.googleImageUrl || undefined} />
-                            <AvatarFallback>
-                              {user.firstName?.[0] || user.email?.[0] || "U"}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span>
-                            {user.firstName} {user.lastName}
-                          </span>
-                        </Button>
-                      </li>
-                    ))}
+                    {otherUsers.map((user) => {
+                      const unreadCount = unreadCountsRef.current[user.id] || 0;
+                      return (
+                        <li key={user.id}>
+                          <Button
+                            variant={selectedUserId === user.id ? "default" : "ghost"}
+                            className="w-full justify-start relative"
+                            onClick={() => {
+                              setSelectedUserId(user.id);
+                              setSearchParams({ userId: user.id });
+                            }}
+                          >
+                            <div className="flex items-center flex-grow">
+                              <Avatar className="h-6 w-6 mr-2">
+                                <AvatarImage src={user.googleImageUrl || undefined} />
+                                <AvatarFallback>
+                                  {user.firstName?.[0] || user.email?.[0] || "U"}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span className="flex-grow">
+                                {user.firstName} {user.lastName}
+                              </span>
+                              
+                              {/* Unread message badge */}
+                              {unreadCount > 0 && (
+                                <Badge className="ml-2 bg-primary text-primary-foreground animate-pulse">
+                                  {unreadCount}
+                                </Badge>
+                              )}
+                            </div>
+                          </Button>
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
               </ScrollArea>
@@ -286,7 +783,7 @@ export default function DirectMessages() {
             ) : (selectedUserId && (selectedUser || loadingSelectedUser)) ? (
               <>
                 <CardContent className="flex-grow p-0">
-                  <ScrollArea className="h-[400px] p-4 messages-scroll-area">
+                  <ScrollArea ref={scrollAreaRef} className="h-[400px] p-4 messages-scroll-area">
                     {loadingSelectedUser ? (
                       <div className="space-y-4">
                         {[1, 2, 3].map((i) => (
@@ -313,10 +810,14 @@ export default function DirectMessages() {
                               className={`flex ${isCurrentUserMessage ? "justify-end" : "justify-start"}`}
                             >
                               <div
-                                className={`max-w-[70%] px-4 py-2 rounded-lg ${
+                                className={`max-w-[70%] px-4 py-2 rounded-lg transition-all duration-500 ${
                                   isCurrentUserMessage
                                     ? "bg-primary text-primary-foreground"
                                     : "bg-muted"
+                                } ${
+                                  newMessageIds.has(message.id)
+                                    ? "new-message shadow-lg shadow-primary/30 animate-pulse-shadow"
+                                    : ""
                                 }`}
                               >
                                 <p>{message.content}</p>
@@ -330,6 +831,18 @@ export default function DirectMessages() {
                             </div>
                           );
                         })}
+                        <div ref={messagesEndRef}></div>
+                      </div>
+                    )}
+                    
+                    {/* Typing indicator */}
+                    {selectedUserId && typingUsers[selectedUserId] && (
+                      <div className="flex justify-start mb-4 mt-2 animate-slide-in">
+                        <div className="bg-accent px-4 py-2 rounded-lg flex items-center space-x-1 max-w-[70%]">
+                          <span className="typing-dot rounded-full h-2 w-2 bg-foreground/70"></span>
+                          <span className="typing-dot rounded-full h-2 w-2 bg-foreground/70"></span>
+                          <span className="typing-dot rounded-full h-2 w-2 bg-foreground/70"></span>
+                        </div>
                       </div>
                     )}
                   </ScrollArea>
@@ -341,6 +854,11 @@ export default function DirectMessages() {
                     onSubmit={(e) => {
                       e.preventDefault();
                       handleSendMessage();
+                    }}
+                    onChange={() => {
+                      // When user is typing, consider them active
+                      lastActivityRef.current = Date.now();
+                      setIsUserActive(true);
                     }}
                   >
                     <Input
@@ -376,3 +894,5 @@ export default function DirectMessages() {
     </div>
   );
 }
+
+
