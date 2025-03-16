@@ -108,7 +108,7 @@ const NavBar = ({ user }: { user: any }) => {
     { to: "/signed-in", icon: <Home className="h-5 w-5" />, label: "Home" },
     { to: "/search", icon: <Search className="h-5 w-5" />, label: "Search" },
     { to: "/post", icon: <PlusSquare className="h-5 w-5" />, label: "Create" },
-    { to: "/messages", icon: <MessageSquare className="h-5 w-5" />, label: "Messages" },
+    { to: "/direct-messages", icon: <MessageSquare className="h-5 w-5" />, label: "Messages" },
     { to: "/leaderboard", icon: <Trophy className="h-5 w-5" />, label: "Leaderboard" },
   ];
 

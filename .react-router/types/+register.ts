@@ -17,10 +17,9 @@ type Params = {
   "/post-detail/:id": {
     "id": string;
   };
+  "/messages/new": {};
   "/leaderboard": {};
   "/signed-in": {};
-  "/messages": {};
-  "/messages/new": {};
   "/profile": {};
   "/search": {};
   "/post": {};

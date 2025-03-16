@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useFindMany, useFindOne, useAction, useUser } from "@gadgetinc/react";
 import { useSearchParams } from "react-router";
 import { api } from "../api";
@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { MessageSquare } from "lucide-react";
 
 export default function DirectMessages() {
   const [searchParams] = useSearchParams();
@@ -16,8 +16,55 @@ export default function DirectMessages() {
   const [messageInput, setMessageInput] = useState("");
   const currentUser = useUser();
 
-  // Fetch all users
+  // Fetch all messages for the current user to determine conversation partners
+  const [{ data: allUserMessages, fetching: loadingAllMessages, error: allMessagesError }] = useFindMany(api.message, {
+    filter: {
+      OR: [
+        { userId: { equals: currentUser?.id } },
+        { recipient: { equals: currentUser?.id } }
+      ]
+    },
+    select: {
+      id: true,
+      userId: true,
+      recipient: true,
+      user: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        googleImageUrl: true,
+      }
+    },
+    live: true, // Enable real-time updates for new conversations
+  });
+  
+  // Extract unique user IDs from messages (conversation partners)
+  const conversationUserIds = useMemo(() => {
+    if (!allUserMessages || !currentUser) return [];
+    
+    // Get unique user IDs from both sent and received messages
+    const uniqueUserIds = new Set<string>();
+    
+    allUserMessages.forEach(message => {
+      // Add the other user's ID to our set (either sender or recipient)
+      if (message.userId === currentUser.id) {
+        // This is a message the current user sent to someone else
+        uniqueUserIds.add(message.recipient);
+      } else if (message.recipient === currentUser.id) {
+        // This is a message someone sent to the current user
+        uniqueUserIds.add(message.userId);
+      }
+    });
+    
+    return Array.from(uniqueUserIds);
+  }, [allUserMessages, currentUser]);
+
+  // Fetch all users who have conversations with the current user
   const [{ data: users, fetching: loadingUsers, error: usersError }] = useFindMany(api.user, {
+    filter: {
+      id: { in: conversationUserIds }
+    },
     select: {
       id: true,
       firstName: true,
@@ -26,6 +73,8 @@ export default function DirectMessages() {
       googleImageUrl: true,
     },
   });
+  
+
 
   // Fetch selected user details directly if we have a userId in URL params
   const [{ data: selectedUserData, fetching: loadingSelectedUser, error: selectedUserError }] = useFindOne(
@@ -102,8 +151,11 @@ export default function DirectMessages() {
     refreshMessages();
   };
 
-  // Filter out the current user from the users list
-  const otherUsers = users?.filter(user => user.id !== currentUser?.id) || [];
+  // Users with conversations are already filtered to only include those who've exchanged messages
+  const otherUsers = users || [];
+  
+  // Check if the user from URL params has a conversation with current user
+  const hasConversationWithSelectedUser = selectedUserId && conversationUserIds.includes(selectedUserId);
 
   // Get selected user details - prioritize the directly fetched user if coming from URL params
   const selectedUser = selectedUserId 
@@ -133,12 +185,20 @@ export default function DirectMessages() {
             </CardHeader>
             <CardContent>
               <ScrollArea className="h-[500px]">
-                {loadingUsers ? (
-                  <div className="flex justify-center p-4">Loading users...</div>
-                ) : usersError ? (
-                  <div className="text-red-500 p-4">Error loading users: {usersError.toString()}</div>
+                {loadingUsers || loadingAllMessages ? (
+                  <div className="flex justify-center p-4">Loading conversations...</div>
+                ) : usersError || allMessagesError ? (
+                  <div className="text-red-500 p-4">
+                    Error loading conversations: {(usersError || allMessagesError)?.toString()}
+                  </div>
                 ) : otherUsers.length === 0 ? (
-                  <div className="text-center p-4">No users found</div>
+                  <div className="text-center p-4 text-muted-foreground">
+                    <div className="flex flex-col items-center gap-2 py-8">
+                      <MessageSquare className="h-12 w-12 opacity-20" />
+                      <p>No conversations yet</p>
+                      <p className="text-sm">Start a conversation with another user</p>
+                    </div>
+                  </div>
                 ) : (
                   <ul className="space-y-2">
                     {otherUsers.map((user) => (
@@ -187,9 +247,14 @@ export default function DirectMessages() {
                         {selectedUser.firstName?.[0] || selectedUser.email?.[0] || "U"}
                       </AvatarFallback>
                     </Avatar>
-                    <span>
-                      {selectedUser.firstName} {selectedUser.lastName}
-                    </span>
+                    <div className="flex flex-col">
+                      <span>
+                        {selectedUser.firstName} {selectedUser.lastName}
+                      </span>
+                      <span className="text-sm text-muted-foreground">
+                        {selectedUser.email}
+                      </span>
+                    </div>
                   </div>
                 </CardTitle>
               ) : selectedUserError && selectedUserId ? (
@@ -199,7 +264,26 @@ export default function DirectMessages() {
               )}
             </CardHeader>
 
-            {(selectedUserId && (selectedUser || loadingSelectedUser)) ? (
+            {(selectedUserId && !hasConversationWithSelectedUser && !loadingAllMessages) ? (
+              <CardContent className="flex flex-col items-center justify-center h-[500px] text-muted-foreground">
+                <MessageSquare className="h-12 w-12 opacity-20 mb-4" />
+                <p>No messages with this user yet</p>
+                <p className="text-sm mt-1">It seems you haven't exchanged any messages with this user.</p>
+                <Button 
+                  variant="secondary" 
+                  className="mt-4" 
+                  onClick={() => {
+                    // Focus on the message input to start conversation
+                    const messageInput = document.querySelector('input[placeholder="Type your message..."]') as HTMLInputElement;
+                    if (messageInput) {
+                      messageInput.focus();
+                    }
+                  }}
+                >
+                  Start Conversation
+                </Button>
+              </CardContent>
+            ) : (selectedUserId && (selectedUser || loadingSelectedUser)) ? (
               <>
                 <CardContent className="flex-grow p-0">
                   <ScrollArea className="h-[400px] p-4 messages-scroll-area">
@@ -273,13 +357,22 @@ export default function DirectMessages() {
                 </CardFooter>
               </>
             ) : (
-              <CardContent className="flex items-center justify-center h-[500px] text-gray-500">
-                Select a user from the contacts list to start messaging
+              <CardContent className="flex flex-col items-center justify-center h-[500px] text-muted-foreground">
+                <MessageSquare className="h-12 w-12 opacity-20 mb-4" />
+                <p>Select a conversation</p>
+                {otherUsers.length === 0 ? (
+                  <>
+                    <p className="text-sm mt-1">You haven't started any conversations yet</p>
+                  </>
+                ) : (
+                  <p className="text-sm mt-1">Select a user from the contacts list to view your conversation</p>
+                )}
               </CardContent>
             )}
           </Card>
         </div>
       </div>
+
     </div>
   );
 }
