@@ -1,20 +1,15 @@
 import { useNavigate, useParams } from "react-router";
 import { useFindOne, useFindMany, useAction, useSession, useUser, useMaybeFindOne } from "@gadgetinc/react";
 import { api } from "../api";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { AutoForm, AutoInput, AutoSubmit, AutoHiddenInput } from "../components/auto";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Apple, Beef, Carrot, ChefHat, Egg, Fish, Leaf, Wheat } from "lucide-react";
 import { Apple, Beef, Carrot, ChefHat, Egg, Fish, Leaf, Wheat } from "lucide-react";
 
 export default function PostDetail() {
@@ -260,40 +255,6 @@ export default function PostDetail() {
   const currentUserId = session?.user?.id;
   const postOwnerId = post?.user?.id;
   const isPostOwner = currentUserId === postOwnerId;
-
-  // Fetch messages between current user and post owner
-  const [{ data: messages, error: messagesError, fetching: fetchingMessages }, refreshMessages] = useFindMany(api.message, {
-    filter: {
-      OR: [
-        // Messages where current user is the sender and post owner is the recipient
-        {
-          AND: [
-            { senderId: { equals: currentUserId } },
-            { recipientId: { equals: postOwnerId } },
-            { postId: { equals: id } },
-          ],
-        },
-        // Messages where current user is the recipient and post owner is the sender
-        {
-          AND: [
-            { senderId: { equals: postOwnerId } },
-            { recipientId: { equals: currentUserId } },
-            { postId: { equals: id } },
-          ],
-        },
-      ],
-    },
-    sort: { createdAt: "Ascending" },
-    select: {
-      id: true,
-      content: true,
-      createdAt: true,
-      senderId: true,
-      read: true,
-      status: true,
-    },
-  });
-
 
 
   // Mark messages as read when viewed
@@ -593,70 +554,29 @@ export default function PostDetail() {
         </div>
       )}
       
-      {/* Chat Interface - Right Column (Only shows if not post owner) */}
+      {/* Contact Owner - Right Column (Only shows if not post owner) */}
       {!isPostOwner && (
         <Card>
           <CardHeader>
-            <CardTitle>Message {post.user?.firstName || "Owner"}</CardTitle>
-            <CardDescription>Chat about this food item</CardDescription>
+            <CardTitle>Contact {post.user?.firstName || "Owner"}</CardTitle>
+            <CardDescription>Interested in this food item?</CardDescription>
           </CardHeader>
-
-          <CardContent>
-            <ScrollArea className="h-[400px] pr-4">
-              {fetchingMessages && !messages ? (
-                <div className="space-y-2">
-                  <Skeleton className="h-10 w-3/4" />
-                  <Skeleton className="h-10 w-1/2 ml-auto" />
-                  <Skeleton className="h-10 w-2/3" />
-                </div>
-              ) : messagesError ? (
-                <div className="p-3 bg-red-50 text-red-500 rounded-md">
-                  Error loading messages. Please refresh.
-                </div>
-              ) : messages && messages.length > 0 ? (
-                <div className="space-y-3">
-                  {messages.map((message) => (
-                    <div
-                      key={message.id}
-                      className={`flex ${message.senderId === currentUserId ? 'justify-end' : 'justify-start'}`}
-                    >
-                      <div
-                        className={`rounded-lg p-3 max-w-[80%] break-words ${message.senderId === currentUserId
-                          ? 'bg-green-600 text-white'
-                          : 'bg-gray-100 text-gray-900'
-                          }`}
-                      >
-                        {message.content}
-                        <div className={`text-xs mt-1 ${message.senderId === currentUserId ? 'text-green-100' : 'text-gray-500'
-                          }`}>
-                          {formatDate(message.createdAt)}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center text-gray-500 py-10">
-                  No messages yet. Start the conversation!
-                </div>
-              )}
-            </ScrollArea>
+          <CardContent className="flex flex-col items-center justify-center p-6">
+            <p className="text-center mb-6">
+              Send a direct message to coordinate pickup or delivery with the owner.
+            </p>
+            <Button
+              variant="default"
+              size="lg"
+              className="w-full"
+              onClick={() => navigate(`/direct-messages?userId=${post.user?.id}`)}
+            >
+              Message {post.user?.firstName || "Owner"}
+            </Button>
           </CardContent>
-          <CardFooter>
-            <AutoForm action={api.message.create}
-              defaultValues={{
-                sender: '2',
-                recipient: '13',
-                postId: id,
-              }}>
-              <AutoInput field="content" label="message" />
-              <AutoSubmit >
-                Send Message
-              </AutoSubmit>
-            </AutoForm>
-          </CardFooter>
         </Card>
-      )}     
+      )}
+   
       {/* Own Post Notice - Shows instead of chat when user is post owner */}
       {isPostOwner && (
         <Card className="lg:hidden">
@@ -667,7 +587,6 @@ export default function PostDetail() {
           </CardContent>
         </Card>
       )}
-
     </div>
   );
 }
