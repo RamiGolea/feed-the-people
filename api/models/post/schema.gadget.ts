@@ -34,7 +34,7 @@ export const schema: GadgetModel = {
       default: "Active",
       acceptMultipleSelections: false,
       acceptUnlistedOptions: false,
-      options: ["Draft", "Active", "Archived"],
+      options: ["Active", "Archived"],
       validations: { required: true },
       storageKey: "7B1wIQ49px8i",
     },
