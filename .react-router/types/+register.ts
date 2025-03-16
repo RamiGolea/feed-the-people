@@ -13,13 +13,13 @@ type Params = {
   "/verify-email": {};
   "/sign-in": {};
   "/sign-up": {};
+  "/direct-messages": {};
   "/post-detail/:id": {
     "id": string;
   };
+  "/messages/new": {};
   "/leaderboard": {};
   "/signed-in": {};
-  "/messages": {};
-  "/messages/new": {};
   "/profile": {};
   "/search": {};
   "/post": {};
