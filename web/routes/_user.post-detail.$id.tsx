@@ -479,9 +479,18 @@ export default function PostDetail() {
       {/* Chat Interface - Right Column (Only shows if not post owner) */}
       {!isPostOwner && (
         <Card>
-          <CardHeader>
-            <CardTitle>Message {post.user?.firstName || "Owner"}</CardTitle>
-            <CardDescription>Chat about this food item</CardDescription>
+          <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
+            <div>
+              <CardTitle>Message {post.user?.firstName || "Owner"}</CardTitle>
+              <CardDescription>Chat about this food item</CardDescription>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate(`/direct-messages?userId=${post.user?.id}`)}
+            >
+              Direct Message Thread
+            </Button>
           </CardHeader>
 
         <CardContent>
