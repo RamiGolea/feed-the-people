@@ -38,6 +38,8 @@ function ShareScoreLeaderboard() {
   
   const [{ data: shareScores, fetching, error }] = useFindMany(api.shareScore, {
     sort: { score: "Descending" },
+    live: true,
+    refetchInterval: 5000, // Refetch every 5 seconds
     select: {
       id: true,
       score: true,
@@ -75,15 +77,45 @@ function ShareScoreLeaderboard() {
     }
   };
 
-  if (fetching) {
+  if (fetching && !shareScores) {
     return <div className="flex justify-center p-4">Loading leaderboard data...</div>;
+  }
+
+  if (fetching && shareScores) {
+    // Show a subtle loading indicator when refreshing data
+    return (
+      <div>
+        <div className="flex justify-center p-2 text-sm text-muted-foreground">
+          Refreshing leaderboard data...
+        </div>
+        <ShareScoreLeaderboardContent shareScores={shareScores} currentPage={currentPage} setCurrentPage={setCurrentPage} inputPage={inputPage} setInputPage={setInputPage} />
+      </div>
+    );
   }
 
   if (error) {
     return <div className="text-red-500 p-4">Error loading leaderboard: {error.message}</div>;
   }
 
-  if (!shareScores || shareScores.length === 0) {
+  return <ShareScoreLeaderboardContent 
+    shareScores={shareScores || []} 
+    currentPage={currentPage} 
+    setCurrentPage={setCurrentPage} 
+    inputPage={inputPage} 
+    setInputPage={setInputPage} 
+  />;
+}
+
+function ShareScoreLeaderboardContent({ 
+  shareScores, 
+  currentPage, 
+  setCurrentPage, 
+  inputPage, 
+  setInputPage 
+}) {
+  const usersPerPage = 10;
+
+  if (shareScores.length === 0) {
     return <div className="p-4">No leaderboard data available yet.</div>;
   }
 
@@ -113,7 +145,7 @@ function ShareScoreLeaderboard() {
               <div className="text-4xl mb-2">🥈</div>
               <div className="text-xl font-semibold text-center mb-1">
                 {topThreeUsers[1].user 
-                  ? `${topThreeUsers[1].user.firstName || ""} ${topThreeUsers[1].user.lastName || ""}`.trim() 
+                  ? `${topThreeUsers[1].user.firstName || ""} ${topThreeUsers[1].user.lastName || ""}`.trim() || topThreeUsers[1].user.email
                   : "Unknown User"}
               </div>
               <div className="text-lg font-bold text-amber-600">{topThreeUsers[1].score} points</div>
@@ -126,7 +158,7 @@ function ShareScoreLeaderboard() {
               <div className="text-5xl mb-3">🥇</div>
               <div className="text-2xl font-bold text-center mb-2">
                 {topThreeUsers[0].user 
-                  ? `${topThreeUsers[0].user.firstName || ""} ${topThreeUsers[0].user.lastName || ""}`.trim() 
+                  ? `${topThreeUsers[0].user.firstName || ""} ${topThreeUsers[0].user.lastName || ""}`.trim() || topThreeUsers[0].user.email
                   : "Unknown User"}
               </div>
               <div className="text-xl font-bold text-amber-600">{topThreeUsers[0].score} points</div>
@@ -139,7 +171,7 @@ function ShareScoreLeaderboard() {
               <div className="text-4xl mb-2">🥉</div>
               <div className="text-xl font-semibold text-center mb-1">
                 {topThreeUsers[2].user 
-                  ? `${topThreeUsers[2].user.firstName || ""} ${topThreeUsers[2].user.lastName || ""}`.trim() 
+                  ? `${topThreeUsers[2].user.firstName || ""} ${topThreeUsers[2].user.lastName || ""}`.trim() || topThreeUsers[2].user.email
                   : "Unknown User"}
               </div>
               <div className="text-lg font-bold text-amber-600">{topThreeUsers[2].score} points</div>
@@ -163,7 +195,9 @@ function ShareScoreLeaderboard() {
             <tr key={score.id} className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
               <td className="p-4 align-middle">{startIndex + index + 4}</td>
               <td className="p-4 align-middle">
-                {score.user ? `${score.user.firstName || ""} ${score.user.lastName || ""}` : "Unknown User"}
+                {score.user 
+                  ? `${score.user.firstName || ""} ${score.user.lastName || ""}`.trim() || score.user.email
+                  : "Unknown User"}
               </td>
               <td className="p-4 align-middle">{score.score}</td>
             </tr>

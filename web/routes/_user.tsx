@@ -119,8 +119,8 @@ const NavBar = ({ user, unreadNotificationsCount = 0 }: { user: any, unreadNotif
 
   const navItems = [
     { to: "/signed-in", icon: <Home className="h-5 w-5" />, label: "Home" },
-    { to: "/search", icon: <Search className="h-5 w-5" />, label: "Search" },
-    { to: "/post", icon: <PlusSquare className="h-5 w-5" />, label: "Create" },
+    { to: "/post", icon: <PlusSquare className="h-5 w-5" />, label: "Post" },
+    { to: "/search", icon: <Search className="h-5 w-5" />, label: "Find" },
     { to: "/direct-messages", icon: <MessageSquare className="h-5 w-5" />, label: "Messages" },
     { to: "/leaderboard", icon: <Trophy className="h-5 w-5" />, label: "Leaderboard" },
   ];
@@ -154,15 +154,23 @@ const NavBar = ({ user, unreadNotificationsCount = 0 }: { user: any, unreadNotif
                 <span className="ml-2">{item.label}</span>
               </Link>
             ))}
-            <Link to="/notifications">
-              <Button variant="ghost" size="icon" className="rounded-full relative">
+            <Link
+              to="/notifications"
+              className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                isActive("/notifications")
+                  ? "bg-accent text-accent-foreground"
+                  : "hover:bg-accent hover:text-accent-foreground"
+              }`}
+            >
+              <div className="relative">
                 <Bell className="h-5 w-5" />
                 {unreadNotificationsCount > 0 && (
                   <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
                     {unreadNotificationsCount > 99 ? '99+' : unreadNotificationsCount}
                   </span>
                 )}
-              </Button>
+              </div>
+              <span className="ml-2">Notifications</span>
             </Link>
           </nav>
 

@@ -22,7 +22,8 @@ export const onSuccess: ActionOnSuccess = async ({ params, record, logger, api, 
     score: 1000,
     user: {
       _link: record.id
-    }
+    },
+    userEmail: record.email
   });
   
   logger.info(`Created shareScore for user ${record.id} with default score of 1000`);
