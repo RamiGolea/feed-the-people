@@ -27,5 +27,10 @@ export const schema: GadgetModel = {
       parent: { model: "user" },
       storageKey: "WiDZs9antLzh",
     },
+    userEmail: {
+      type: "string",
+      validations: { required: true, unique: true },
+      storageKey: "-M30LpMnm5tc",
+    },
   },
 };

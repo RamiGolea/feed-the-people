@@ -1,7 +1,7 @@
 import { useNavigate, useParams } from "react-router";
 import { useFindOne, useFindMany, useAction, useSession, useUser, useMaybeFindOne } from "@gadgetinc/react";
 import { api } from "../api";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
@@ -257,16 +257,6 @@ export default function PostDetail() {
   const isPostOwner = currentUserId === postOwnerId;
 
 
-  // Mark messages as read when viewed
-  useEffect(() => {
-    if (messages && currentUserId) {
-      const unreadMessages = messages.filter(msg =>
-        msg.senderId !== currentUserId && !msg.read);
-
-      // Update unread messages to read (this would be ideal but is currently skipped as update permissions aren't set)
-      // This would require setting up proper permissions for the message.update action
-    }
-  }, [messages, currentUserId]);
 
   // Format date for display
   const formatDate = (dateString) => {
