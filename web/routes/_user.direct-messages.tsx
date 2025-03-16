@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useFindMany, useFindOne, useAction, useUser } from "@gadgetinc/react";
 import { useSearchParams } from "react-router";
 import { api } from "../api";
@@ -8,6 +8,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { MessageSquare } from "lucide-react";
+import { isEmptyArrayFilterError } from "../utils/errorHelpers";
 
 export default function DirectMessages() {
   const [searchParams] = useSearchParams();
@@ -17,7 +18,7 @@ export default function DirectMessages() {
   const currentUser = useUser();
 
   // Fetch all messages for the current user to determine conversation partners
-  const [{ data: allUserMessages, fetching: loadingAllMessages, error: allMessagesError }] = useFindMany(api.message, {
+  const [{ data: allUserMessages, fetching: loadingAllMessages, error: allMessagesError }, refreshAllMessages] = useFindMany(api.message, {
     filter: {
       OR: [
         { userId: { equals: currentUser?.id } },
@@ -61,10 +62,10 @@ export default function DirectMessages() {
   }, [allUserMessages, currentUser]);
 
   // Fetch all users who have conversations with the current user
-  const [{ data: users, fetching: loadingUsers, error: usersError }] = useFindMany(api.user, {
-    filter: {
-      id: { in: conversationUserIds }
-    },
+  const [{ data: users, fetching: loadingUsers, error: usersError }, refreshUsers] = useFindMany(api.user, {
+    filter: conversationUserIds.length > 0 
+      ? { id: { in: conversationUserIds } }
+      : {}, // Empty filter when there are no conversation partners yet
     select: {
       id: true,
       firstName: true,
@@ -72,9 +73,9 @@ export default function DirectMessages() {
       email: true,
       googleImageUrl: true,
     },
+    pause: conversationUserIds.length === 0, // Pause the query if there are no conversation partners
   });
   
-
 
   // Fetch selected user details directly if we have a userId in URL params
   const [{ data: selectedUserData, fetching: loadingSelectedUser, error: selectedUserError }] = useFindOne(
@@ -135,6 +136,47 @@ export default function DirectMessages() {
   // Send message action
   const [{ fetching: sendingMessage }, sendMessage] = useAction(api.message.create);
 
+  // Function to refresh the list of conversations
+  const refreshUserConversations = useCallback(async () => {
+    // This will trigger a refetch of all user messages, which in turn updates the conversation partners
+    await Promise.all([
+      // Using the refetch functions returned by useFindMany hooks
+      refreshAllMessages(),
+      refreshUsers()
+    ]);
+  }, [refreshAllMessages, refreshUsers]);
+
+  // Start a new conversation with default message
+  const startConversation = useCallback(async () => {
+    if (!selectedUserId || !currentUser) return;
+    
+    try {
+      // Send the initial message
+      await sendMessage({
+        content: "Can I GetAByte?",
+        recipient: selectedUserId,
+        user: {
+          _link: currentUser.id,
+        },
+      });
+      
+      // Add a small delay to ensure the API has time to update
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Refresh both the messages list and the conversations list
+      await refreshMessages();
+      await refreshUserConversations();
+      
+      // Update the conversation state to reflect that we now have a conversation with this user
+      if (selectedUserId && !conversationUserIds.includes(selectedUserId)) {
+        // Add this user to the list of conversation partners
+        conversationUserIds.push(selectedUserId);
+      }
+    } catch (error) {
+      console.error("Failed to start conversation:", error);
+    }
+  }, [selectedUserId, currentUser, sendMessage, refreshMessages, refreshUserConversations, conversationUserIds]);
+
   // Handle sending a new message
   const handleSendMessage = async () => {
     if (!messageInput.trim() || !selectedUserId || !currentUser) return;
@@ -187,11 +229,11 @@ export default function DirectMessages() {
               <ScrollArea className="h-[500px]">
                 {loadingUsers || loadingAllMessages ? (
                   <div className="flex justify-center p-4">Loading conversations...</div>
-                ) : usersError || allMessagesError ? (
+                ) : (usersError && !isEmptyArrayFilterError(usersError)) || allMessagesError ? (
                   <div className="text-red-500 p-4">
-                    Error loading conversations: {(usersError || allMessagesError)?.toString()}
+                    Error loading conversations: {((usersError && !isEmptyArrayFilterError(usersError)) || allMessagesError)?.toString()}
                   </div>
-                ) : otherUsers.length === 0 ? (
+                ) : otherUsers.length === 0 || conversationUserIds.length === 0 ? (
                   <div className="text-center p-4 text-muted-foreground">
                     <div className="flex flex-col items-center gap-2 py-8">
                       <MessageSquare className="h-12 w-12 opacity-20" />
@@ -272,15 +314,10 @@ export default function DirectMessages() {
                 <Button 
                   variant="secondary" 
                   className="mt-4" 
-                  onClick={() => {
-                    // Focus on the message input to start conversation
-                    const messageInput = document.querySelector('input[placeholder="Type your message..."]') as HTMLInputElement;
-                    if (messageInput) {
-                      messageInput.focus();
-                    }
-                  }}
+                  onClick={() => startConversation()}
+                  disabled={sendingMessage}
                 >
-                  Start Conversation
+                  {sendingMessage ? "Starting..." : "Start Conversation"}
                 </Button>
               </CardContent>
             ) : (selectedUserId && (selectedUser || loadingSelectedUser)) ? (
@@ -350,7 +387,7 @@ export default function DirectMessages() {
                       className="flex-grow"
                       disabled={sendingMessage}
                     />
-                    <Button type="submit" disabled={sendingMessage || !messageInput.trim()}>
+                    <Button type="submit" disabled={sendingMessage || !messageInput.trim()}> 
                       {sendingMessage ? "Sending..." : "Send"}
                     </Button>
                   </form>
