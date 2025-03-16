@@ -1,14 +1,14 @@
 {
-  "name": "feed-the-people",
+  "name": "share-a-byte",
   "version": "0.1.0",
-  "description": "Internal package for Gadget app feed-the-people (Development environment)",
+  "description": "Internal package for Gadget app share-a-byte (Development environment)",
   "license": "UNLICENSED",
   "private": true,
   "scripts": {
     "build": "NODE_ENV=production react-router build"
   },
   "dependencies": {
-    "@gadget-client/feed-the-people": "link:.gadget/client",
+    "@gadget-client/share-a-byte": "link:.gadget/client",
     "@gadgetinc/react": "github:gadget-inc/js-clients#@gadgetinc/react-v0.19.2-alpha.1-gitpkg-929bcaaa",
     "@mdxeditor/editor": "^3.8.0",
     "@radix-ui/react-accordion": "^1.2.3",
