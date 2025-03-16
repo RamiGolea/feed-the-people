@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useLoaderData } from "react-router";
 import { api } from "../api";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -8,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { formatDistanceToNow } from "date-fns";
-import { BellIcon, CheckIcon } from "lucide-react";
+import { BellIcon, CheckIcon, ArrowUpIcon, ArrowDownIcon } from "lucide-react";
 
 export async function loader({ context }) {
   const notifications = await context.api.notification.findMany({
@@ -40,6 +41,13 @@ export default function Notifications() {
   const { notifications } = useLoaderData<typeof loader>();
   const [activeTab, setActiveTab] = useState("all");
   const [displayNotifications, setDisplayNotifications] = useState(notifications);
+  const [votes, setVotes] = useState<Record<string, { upvotes: number, downvotes: number }>>(() => {
+    const initialVotes: Record<string, { upvotes: number, downvotes: number }> = {};
+    notifications.forEach(notification => {
+      initialVotes[notification.id] = { upvotes: 0, downvotes: 0 };
+    });
+    return initialVotes;
+  });
   
   useEffect(() => {
     if (activeTab === "all") {
@@ -67,6 +75,46 @@ export default function Notifications() {
         notification.id === id ? { ...notification, isRead: true } : notification
       )
     );
+  };
+
+  const handleUpvote = async (id: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      await api.notification.delete({id});
+      toast.success("Upvote received");
+      
+      // Remove the notification from both state variables
+      const updatedNotifications = notifications.filter(notification => notification.id !== id);
+      setDisplayNotifications(prev => prev.filter(notification => notification.id !== id));
+      
+      // Update votes state to remove the deleted notification
+      const newVotes = {...votes};
+      delete newVotes[id];
+      setVotes(newVotes);
+    } catch (error) {
+      toast.error("Failed to process upvote");
+    }
+  };
+
+  const handleDownvote = async (id: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      await api.notification.delete({id});
+      toast.success("Downvote received");
+      
+      // Remove the notification from both state variables
+      const updatedNotifications = notifications.filter(notification => notification.id !== id);
+      setDisplayNotifications(prev => prev.filter(notification => notification.id !== id));
+      
+      // Update votes state to remove the deleted notification
+      const newVotes = {...votes};
+      delete newVotes[id];
+      setVotes(newVotes);
+    } catch (error) {
+      toast.error("Failed to process downvote");
+    }
   };
 
   const getNotificationTypeLabel = (type: string) => {
@@ -113,7 +161,6 @@ export default function Notifications() {
               {displayNotifications.map((notification) => (
                 <div key={notification.id} className="mb-4">
                   <Card className={notification.isRead ? "opacity-75" : "border-2 border-primary"}>
-                    <Link to={`/post-detail/${notification.relatedPostId}`} className="block">
                       <CardHeader className="pb-2">
                         <div className="flex justify-between items-center">
                           <Badge
@@ -135,32 +182,29 @@ export default function Notifications() {
                           </p>
                         )}
                       </CardContent>
-                    </Link>
-                    <CardFooter className="pt-2 flex justify-between">
-                      <div className="flex-1">
-                        {notification.relatedPostId && (
-                          <Link
-                            to={`/post-detail/${notification.relatedPostId}`}
-                            className="text-sm text-blue-600 hover:text-blue-800"
+                    <CardFooter className="pt-2 flex justify-end items-center">
+                      <div className="flex items-center space-x-3">
+                        <div className="flex items-center">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 px-2 mr-1"
+                            onClick={(e) => handleUpvote(notification.id, e)}
                           >
-                            View Details
-                          </Link>
-                        )}
+                            <ArrowUpIcon className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <div className="flex items-center">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 px-2"
+                            onClick={(e) => handleDownvote(notification.id, e)}
+                          >
+                            <ArrowDownIcon className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
-                      {!notification.isRead && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="ml-auto"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            markAsRead(notification.id);
-                          }}
-                        >
-                          <CheckIcon className="h-4 w-4 mr-2" />
-                          Mark as read
-                        </Button>
-                      )}
                     </CardFooter>
                   </Card>
                   <Separator className="my-2" />

@@ -2,7 +2,7 @@ import { applyParams, save, ActionOptions } from "gadget-server";
 import { preventCrossUserDataAccess } from "gadget-server/auth";
 
 export const params = {
-  recipient: { type: "string" }
+  recipientEmail: { type: "string" }
 };
 
 export const run: ActionRun = async ({ params, record, logger, api, connections }) => {
@@ -17,17 +17,17 @@ export const run: ActionRun = async ({ params, record, logger, api, connections 
   }
   
   // If a recipient email was provided, verify that a user with this email exists
-  if (params.recipient) {
+  if (params.recipientEmail) {
     const recipientUser = await api.user.findFirst({
-      filter: { email: { equals: params.recipient } },
+      filter: { email: { equals: params.recipientEmail } },
       select: { id: true, email: true }
     }).catch(() => null);
 
     if (!recipientUser) {
-      throw new Error(`No user found with email ${params.recipient}. Please provide a valid email.`);
+      throw new Error(`No user found with email ${params.recipientEmail}. Please provide a valid email.`);
     }
     
-    logger.info(`Verified recipient ${params.recipient} exists in the user database`);
+    logger.info(`Verified recipient ${params.recipientEmail} exists in the user database`);
   }
   
   // Set the post status to "Archived"
@@ -37,7 +37,7 @@ export const run: ActionRun = async ({ params, record, logger, api, connections 
   await save(record);
   
   // If a recipient email was provided, create a notification and send an email
-  if (params.recipient) {
+  if (params.recipientEmail) {
     // Get the sender (post creator) information
     const sender = await api.user.findFirst({
       filter: { id: { equals: record.userId } },
@@ -50,7 +50,7 @@ export const run: ActionRun = async ({ params, record, logger, api, connections 
     
     // Get the recipient user (already verified to exist)
     const recipientUser = await api.user.findFirst({
-      filter: { email: { equals: params.recipient } },
+      filter: { email: { equals: params.recipientEmail } },
       select: { id: true, email: true, firstName: true }
     });
     
@@ -68,7 +68,7 @@ export const run: ActionRun = async ({ params, record, logger, api, connections 
     try {
       // Create notification in the database
       await api.notification.create({
-        content: `The food sharing post "${record.title}" has been archived.`,
+        content: `The post "${record.title}" has been completed.`,
         type: "post_completed",
         isRead: false,
         sender: {
