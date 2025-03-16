@@ -15,7 +15,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { AutoForm, AutoInput, AutoSubmit, AutoHiddenInput } from "../components/auto";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Apple, Beef, Carrot, ChefHat, Egg, Fish, Leaf, Wheat } from "lucide-react";
-import { Apple, Beef, Carrot, ChefHat, Egg, Fish, Leaf, Wheat } from "lucide-react";
 
 export default function PostDetail() {
   const { id } = useParams();
@@ -554,6 +553,7 @@ export default function PostDetail() {
           </AutoForm>
         </CardFooter>
       </Card>
+      )}
    
       {/* Own Post Notice - Shows instead of chat when user is post owner */}
       {isPostOwner && (
