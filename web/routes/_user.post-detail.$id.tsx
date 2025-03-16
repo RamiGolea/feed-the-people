@@ -1,7 +1,7 @@
 import { useNavigate, useParams } from "react-router";
 import { useFindOne, useFindMany, useAction, useSession, useUser } from "@gadgetinc/react";
 import { api } from "../api";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
@@ -151,24 +151,22 @@ export default function PostDetail() {
   const postOwnerId = post?.user?.id;
   const isPostOwner = currentUserId === postOwnerId;
 
-  // Fetch messages between current user and post owner
+  // Fetch messages between current user and post owner with live updates
   const [{ data: messages, error: messagesError, fetching: fetchingMessages }, refreshMessages] = useFindMany(api.message, {
     filter: {
       OR: [
         // Messages where current user is the sender and post owner is the recipient
         {
           AND: [
-            { senderId: { equals: currentUserId } },
-            { recipientId: { equals: postOwnerId } },
-            { postId: { equals: id } },
+            { userId: { equals: currentUserId } },
+            { recipient: { equals: postOwnerId } },
           ],
         },
         // Messages where current user is the recipient and post owner is the sender
         {
           AND: [
-            { senderId: { equals: postOwnerId } },
-            { recipientId: { equals: currentUserId } },
-            { postId: { equals: id } },
+            { userId: { equals: postOwnerId } },
+            { recipient: { equals: currentUserId } },
           ],
         },
       ],
@@ -178,20 +176,52 @@ export default function PostDetail() {
       id: true,
       content: true,
       createdAt: true,
-      senderId: true,
-      read: true,
-      status: true,
+      userId: true,
+      recipient: true,
     },
+    live: true, // Enable real-time updates
   });
 
+  // Track newly arrived messages for animation
+  const [newMessageIds, setNewMessageIds] = useState<string[]>([]);
+  
+  // Track previous message count to detect new messages
+  const prevMessageCountRef = useRef<number>(0);
+  
+  // Reference to the messages container for auto-scrolling
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
 
+
+
+  // Auto-scroll to the most recent message when messages change
+  useEffect(() => {
+    if (messages) {
+      // Scroll to the bottom of the messages container
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      
+      // Detect new messages by comparing current count with previous count
+      if (messages.length > prevMessageCountRef.current && prevMessageCountRef.current > 0) {
+        // Get IDs of new messages (those that weren't in the previous batch)
+        const newIds = messages.slice(prevMessageCountRef.current).map(msg => msg.id);
+        setNewMessageIds(newIds);
+        
+        // Clear the animation after 3 seconds
+        setTimeout(() => {
+          setNewMessageIds([]);
+        }, 3000);
+      }
+      
+      // Update the reference count for next comparison
+      prevMessageCountRef.current = messages.length;
+    }
+  }, [messages]);
 
   // Mark messages as read when viewed
   useEffect(() => {
     if (messages && currentUserId) {
       const unreadMessages = messages.filter(msg =>
-        msg.senderId !== currentUserId && !msg.read);
+        msg.userId !== currentUserId);
 
       // Update unread messages to read (this would be ideal but is currently skipped as update permissions aren't set)
       // This would require setting up proper permissions for the message.update action
@@ -455,62 +485,76 @@ export default function PostDetail() {
             <CardDescription>Chat about this food item</CardDescription>
           </CardHeader>
 
-          <CardContent>
-            <ScrollArea className="h-[400px] pr-4">
-              {fetchingMessages && !messages ? (
-                <div className="space-y-2">
-                  <Skeleton className="h-10 w-3/4" />
-                  <Skeleton className="h-10 w-1/2 ml-auto" />
-                  <Skeleton className="h-10 w-2/3" />
-                </div>
-              ) : messagesError ? (
-                <div className="p-3 bg-red-50 text-red-500 rounded-md">
-                  Error loading messages. Please refresh.
-                </div>
-              ) : messages && messages.length > 0 ? (
-                <div className="space-y-3">
-                  {messages.map((message) => (
+        <CardContent>
+          <ScrollArea className="h-[400px] pr-4">
+            {fetchingMessages && !messages ? (
+              <div className="space-y-2">
+                <Skeleton className="h-10 w-3/4" />
+                <Skeleton className="h-10 w-1/2 ml-auto" />
+                <Skeleton className="h-10 w-2/3" />
+              </div>
+            ) : messagesError ? (
+              <div className="p-3 bg-red-50 text-red-500 rounded-md">
+                Error loading messages. Please refresh.
+              </div>
+            ) : messages && messages.length > 0 ? (
+              <div className="space-y-3">
+                {messages.map((message) => (
+                  <div
+                    key={message.id}
+                    className={`flex ${message.userId === currentUserId ? 'justify-end' : 'justify-start'} ${
+                      newMessageIds.includes(message.id) ? 'animate-pulse' : ''
+                    }`}
+                  >
                     <div
-                      key={message.id}
-                      className={`flex ${message.senderId === currentUserId ? 'justify-end' : 'justify-start'}`}
-                    >
-                      <div
-                        className={`rounded-lg p-3 max-w-[80%] break-words ${message.senderId === currentUserId
+                      className={`rounded-lg p-3 max-w-[80%] break-words transition-colors ${
+                        message.userId === currentUserId
                           ? 'bg-green-600 text-white'
                           : 'bg-gray-100 text-gray-900'
-                          }`}
-                      >
-                        {message.content}
-                        <div className={`text-xs mt-1 ${message.senderId === currentUserId ? 'text-green-100' : 'text-gray-500'
-                          }`}>
-                          {formatDate(message.createdAt)}
-                        </div>
+                      } ${
+                        newMessageIds.includes(message.id) 
+                          ? 'shadow-md ' + (message.userId === currentUserId ? 'bg-green-500' : 'bg-gray-200')
+                          : ''
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className={`text-xs font-semibold ${message.userId === currentUserId ? 'text-green-100' : 'text-gray-700'}`}>
+                          {message.userId === currentUserId ? 'You' : post.user?.firstName || 'Owner'}
+                        </span>
+                      </div>
+                      {message.content}
+                      <div className={`text-xs mt-1 ${message.userId === currentUserId ? 'text-green-100' : 'text-gray-500'
+                        }`}>
+                        {formatDate(message.createdAt)}
                       </div>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center text-gray-500 py-10">
-                  No messages yet. Start the conversation!
-                </div>
-              )}
-            </ScrollArea>
-          </CardContent>
-          <CardFooter>
-            <AutoForm action={api.message.create}
-              defaultValues={{
-                sender: '2',
-                recipient: '13',
-                postId: id,
-              }}>
-              <AutoInput field="content" label="message" />
-              <AutoSubmit >
-                Send Message
-              </AutoSubmit>
-            </AutoForm>
-          </CardFooter>
-        </Card>
-      )}     
+                  </div>
+                ))}
+                {/* Invisible element for auto-scrolling */}
+                <div ref={messagesEndRef} />
+              </div>
+            ) : (
+              <div className="text-center text-gray-500 py-10">
+                No messages yet. Start the conversation!
+              </div>
+            )}
+          </ScrollArea>
+        </CardContent>
+        <CardFooter>
+          <AutoForm 
+            action={api.message.create} 
+            onSuccess={() => {
+              // Form will automatically clear and the live query will update the UI
+              messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+            }}
+          >
+            <AutoInput field="content" label="message" placeholder="Type your message here..." />
+            <AutoHiddenInput field="recipient" value={post.user?.id || ""} />
+            <AutoSubmit>Send</AutoSubmit>
+          </AutoForm>
+        </CardFooter>
+      </Card>
+   
       {/* Own Post Notice - Shows instead of chat when user is post owner */}
       {isPostOwner && (
         <Card className="lg:hidden">
@@ -521,7 +565,6 @@ export default function PostDetail() {
           </CardContent>
         </Card>
       )}
-
     </div>
   );
 }
