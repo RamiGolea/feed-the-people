@@ -27,10 +27,6 @@ export const permissions: GadgetPermissions = {
           },
         },
         notification: {
-          read: {
-            filter:
-              "accessControl/filters/notification/signed-in-read.gelly",
-          },
           actions: {
             create: true,
             delete: true,
