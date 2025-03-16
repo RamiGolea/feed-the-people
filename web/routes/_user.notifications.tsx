@@ -1,10 +1,9 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useLoaderData } from "react-router";
 import { api } from "../api";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -28,6 +27,7 @@ export async function loader({ context }) {
       metadata: true,
       relatedPostId: true,
       sender: {
+        id: true,
         firstName: true,
         lastName: true
       }
@@ -39,7 +39,6 @@ export async function loader({ context }) {
 
 export default function Notifications() {
   const { notifications } = useLoaderData<typeof loader>();
-  const [activeTab, setActiveTab] = useState("all");
   const [displayNotifications, setDisplayNotifications] = useState(notifications);
   const [votes, setVotes] = useState<Record<string, { upvotes: number, downvotes: number }>>(() => {
     const initialVotes: Record<string, { upvotes: number, downvotes: number }> = {};
@@ -48,16 +47,6 @@ export default function Notifications() {
     });
     return initialVotes;
   });
-  
-  useEffect(() => {
-    if (activeTab === "all") {
-      setDisplayNotifications(notifications);
-    } else if (activeTab === "unread") {
-      setDisplayNotifications(notifications.filter(notification => !notification.isRead));
-    } else if (activeTab === "read") {
-      setDisplayNotifications(notifications.filter(notification => notification.isRead));
-    }
-  }, [activeTab, notifications]);
 
   const markAsRead = async (id: string) => {
     await api.notification.update({
@@ -80,41 +69,89 @@ export default function Notifications() {
   const handleUpvote = async (id: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    try {
-      await api.notification.delete({id});
-      toast.success("Upvote received");
+    
+    // Find the notification to get the sender ID
+    const notification = displayNotifications.find(n => n.id === id);
+    
+    if (notification && notification.sender) {
+      // Find the sender's shareScore
+      const senderScores = await api.shareScore.findMany({
+        filter: {
+          userId: {
+            equals: notification.sender.id
+          }
+        },
+        select: {
+          id: true,
+          score: true
+        }
+      });
       
-      // Remove the notification from both state variables
-      const updatedNotifications = notifications.filter(notification => notification.id !== id);
-      setDisplayNotifications(prev => prev.filter(notification => notification.id !== id));
-      
-      // Update votes state to remove the deleted notification
-      const newVotes = {...votes};
-      delete newVotes[id];
-      setVotes(newVotes);
-    } catch (error) {
-      toast.error("Failed to process upvote");
+      if (senderScores && senderScores.length > 0) {
+        const scoreId = senderScores[0].id;
+        
+        // Update the share score by increasing it by 50 using the new action
+        await api.shareScore.updateScoreFromVote(scoreId, {
+          pointAdjustment: 50
+        });
+      }
     }
+    
+    // Delete the notification
+    await api.notification.delete(id);
+    toast.success("Upvote received! Sender received 50 points.");
+    
+    // Remove the notification from both state variables
+    setDisplayNotifications(prev => prev.filter(notification => notification.id !== id));
+    
+    // Update votes state to remove the deleted notification
+    const newVotes = {...votes};
+    delete newVotes[id];
+    setVotes(newVotes);
   };
 
   const handleDownvote = async (id: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    try {
-      await api.notification.delete({id});
-      toast.success("Downvote received");
+    
+    // Find the notification to get the sender ID
+    const notification = displayNotifications.find(n => n.id === id);
+    
+    if (notification && notification.sender) {
+      // Find the sender's shareScore
+      const senderScores = await api.shareScore.findMany({
+        filter: {
+          userId: {
+            equals: notification.sender.id
+          }
+        },
+        select: {
+          id: true,
+          score: true
+        }
+      });
       
-      // Remove the notification from both state variables
-      const updatedNotifications = notifications.filter(notification => notification.id !== id);
-      setDisplayNotifications(prev => prev.filter(notification => notification.id !== id));
-      
-      // Update votes state to remove the deleted notification
-      const newVotes = {...votes};
-      delete newVotes[id];
-      setVotes(newVotes);
-    } catch (error) {
-      toast.error("Failed to process downvote");
+      if (senderScores && senderScores.length > 0) {
+        const scoreId = senderScores[0].id;
+        
+        // Update the share score by decreasing it by 10 using the new action
+        await api.shareScore.updateScoreFromVote(scoreId, {
+          pointAdjustment: -10
+        });
+      }
     }
+    
+    // Delete the notification
+    await api.notification.delete(id);
+    toast.success("Downvote received. Sender lost 10 points.");
+    
+    // Remove the notification from both state variables
+    setDisplayNotifications(prev => prev.filter(notification => notification.id !== id));
+    
+    // Update votes state to remove the deleted notification
+    const newVotes = {...votes};
+    delete newVotes[id];
+    setVotes(newVotes);
   };
 
   const getNotificationTypeLabel = (type: string) => {
@@ -141,26 +178,18 @@ export default function Notifications() {
         <h1 className="text-3xl font-bold">Notifications</h1>
       </div>
       
-      <Tabs defaultValue="all" className="w-full" onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3 mb-4">
-          <TabsTrigger value="all">All</TabsTrigger>
-          <TabsTrigger value="unread">Unread</TabsTrigger>
-          <TabsTrigger value="read">Read</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value={activeTab} className="mt-0">
-          {displayNotifications.length === 0 ? (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-12">
-                <BellIcon className="h-12 w-12 text-muted-foreground mb-4" />
-                <p className="text-center text-muted-foreground">No notifications to display</p>
-              </CardContent>
-            </Card>
-          ) : (
-            <ScrollArea className="h-[600px] rounded-md">
-              {displayNotifications.map((notification) => (
-                <div key={notification.id} className="mb-4">
-                  <Card className={notification.isRead ? "opacity-75" : "border-2 border-primary"}>
+      {displayNotifications.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <BellIcon className="h-12 w-12 text-muted-foreground mb-4" />
+            <p className="text-center text-muted-foreground">No notifications to display</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <ScrollArea className="h-[600px] rounded-md">
+          {displayNotifications.map((notification) => (
+            <div key={notification.id} className="mb-4">
+              <Card className={notification.isRead ? "opacity-75" : "border-2 border-primary"}>
                       <CardHeader className="pb-2">
                         <div className="flex justify-between items-center">
                           <Badge
@@ -212,8 +241,6 @@ export default function Notifications() {
               ))}
             </ScrollArea>
           )}
-        </TabsContent>
-      </Tabs>
     </div>
   );
 }

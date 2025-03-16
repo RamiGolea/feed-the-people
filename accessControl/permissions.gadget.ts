@@ -66,6 +66,7 @@ export const permissions: GadgetPermissions = {
             create: true,
             delete: true,
             update: true,
+            updateScoreFromVote: true,
           },
         },
         user: {
