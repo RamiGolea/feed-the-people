@@ -11,15 +11,20 @@ import {
   CardHeader,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CalendarIcon, ArrowUp } from "lucide-react";
+import { CalendarIcon, ArrowUp, ChevronLeft, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function SearchPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
-
   const [userScores, setUserScores] = useState<Record<string, number>>({});
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [afterCursor, setAfterCursor] = useState<string | undefined>(undefined);
+  const [beforeCursor, setBeforeCursor] = useState<string | undefined>(undefined);
+  const pageSize = 10;
   
   // Build filter object based on selected category
   const filter = {
@@ -37,6 +42,9 @@ export default function SearchPage() {
     filter,
     search: searchTerm || undefined, // Only apply search if there's a term
     sort: { createdAt: "Descending" },
+    first: pageSize,
+    after: afterCursor,
+    before: beforeCursor,
     select: {
       id: true,
       title: true,
@@ -101,6 +109,30 @@ export default function SearchPage() {
     
     fetchUserScores();
   }, [data]);
+
+  // Reset pagination when search term or category changes
+  useEffect(() => {
+    setCurrentPage(1);
+    setAfterCursor(undefined);
+    setBeforeCursor(undefined);
+  }, [searchTerm, categoryFilter]);
+
+  // Handle pagination
+  const handleNextPage = () => {
+    if (data?.hasNextPage) {
+      setBeforeCursor(undefined);
+      setAfterCursor(data.endCursor);
+      setCurrentPage(prev => prev + 1);
+    }
+  };
+
+  const handlePreviousPage = () => {
+    if (data?.hasPreviousPage) {
+      setAfterCursor(undefined);
+      setBeforeCursor(data.startCursor);
+      setCurrentPage(prev => prev - 1);
+    }
+  };
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
@@ -177,33 +209,48 @@ export default function SearchPage() {
         </div>
       )}
       
-      <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {data?.map((post) => (
           <Link 
             to={`/post-detail/${post.id}`} 
             key={post.id}
             className="w-full"
           >
-            <Card className="w-full hover:shadow-lg transition-shadow">
-              <div className="flex flex-col md:flex-row">
-                <div className="md:w-1/4 h-48 overflow-hidden">
-                  {post.images && Array.isArray(JSON.parse(post.images as string)) && JSON.parse(post.images as string).length > 0 ? (
-                    <img 
-                      src={JSON.parse(post.images as string)[0]} 
-                      alt={post.title} 
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                      <span className="text-gray-400">No image</span>
-                    </div>
-                  )}
+            <Card className="w-full h-full hover:shadow-lg transition-shadow">
+              <div className="flex flex-col">
+                <div className="w-full h-40 overflow-hidden">
+                  {(() => {
+                    // Safe JSON parsing
+                    let images = [];
+                    try {
+                      if (post.images) {
+                        const parsedImages = JSON.parse(post.images as string);
+                        if (Array.isArray(parsedImages) && parsedImages.length > 0) {
+                          images = parsedImages;
+                        }
+                      }
+                    } catch (e) {
+                      console.error("Error parsing post images:", e);
+                    }
+                    
+                    return images.length > 0 ? (
+                      <img 
+                        src={images[0]} 
+                        alt={post.title} 
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                        <span className="text-gray-400">No image</span>
+                      </div>
+                    );
+                  })()}
                 </div>
                 
-                <div className="flex-1 p-4">
+                <div className="flex-1 p-3">
                   
                   <div className="flex justify-between items-start">
-                    <h2 className="font-semibold text-lg">{post.title}</h2>
+                    <h2 className="font-semibold text-base line-clamp-1">{post.title}</h2>
                     <div className="flex flex-col items-end gap-1">
                       {post.category && (
                         <Badge variant="secondary" className="capitalize">
@@ -221,18 +268,18 @@ export default function SearchPage() {
                     </div>
                   </div>
                   
-                  <p className="text-sm text-gray-600 mt-2">{post.description}</p>                  
+                  <p className="text-xs text-gray-600 mt-2 line-clamp-2">{post.description}</p>                  
                   {post.foodAllergens && (
-                    <div className="mt-3">
-                      <span className="text-sm font-medium">Allergens: </span>
-                      <span className="text-sm text-gray-600">{post.foodAllergens}</span>
+                    <div className="mt-2">
+                      <span className="text-xs font-medium">Allergens: </span>
+                      <span className="text-xs text-gray-600 line-clamp-1">{post.foodAllergens}</span>
                     </div>
                   )}
                   
-                  <div className="mt-3">
+                  <div className="mt-2">
                     {post.user && (
-                      <div className="text-sm text-gray-600 mb-2">
-                        Posted by: <span className="font-medium">
+                      <div className="text-xs text-gray-600 mb-1">
+                        By: <span className="font-medium">
                           {post.user.firstName || post.user.lastName 
                             ? `${post.user.firstName || ''} ${post.user.lastName || ''}`.trim()
                             : 'Anonymous'}
@@ -240,25 +287,25 @@ export default function SearchPage() {
                       </div>
                     )}
                   
-                    <div className="flex flex-wrap items-center gap-4">
+                    <div className="flex flex-wrap items-center gap-2 text-xs">
                       {post.location && (
-                        <div className="text-sm text-gray-500 flex items-center">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <div className="text-gray-500 flex items-center">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                           </svg>
-                          {post.location}
+                          <span className="truncate">{post.location}</span>
                         </div>
                       )}
                       
                       {post.goBadDate && (
-                        <div className="text-sm text-gray-500 flex items-center">
-                          <CalendarIcon className="h-4 w-4 mr-1" />
-                          <span>Best before: {formatDate(post.goBadDate)}</span>
+                        <div className="text-gray-500 flex items-center">
+                          <CalendarIcon className="h-3 w-3 mr-1" />
+                          <span>Expires: {formatDate(post.goBadDate)}</span>
                         </div>
                       )}
                       
-                      <div className="text-xs text-gray-400 ml-auto">
+                      <div className="text-gray-400 ml-auto">
                         Posted: {format(new Date(post.createdAt), "MMM d, yyyy")}
                       </div>
                     </div>
@@ -269,6 +316,39 @@ export default function SearchPage() {
           </Link>
         ))}
       </div>
+      
+      {/* Pagination UI */}
+      {!fetching && !error && data && data.length > 0 && (
+        <div className="flex justify-center items-center mt-8">
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handlePreviousPage}
+              disabled={!data.hasPreviousPage}
+              className="flex items-center gap-1"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Previous
+            </Button>
+            
+            <span className="text-sm px-3 py-1 rounded-md bg-muted">
+              Page {currentPage}
+            </span>
+            
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleNextPage}
+              disabled={!data.hasNextPage}
+              className="flex items-center gap-1"
+            >
+              Next
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

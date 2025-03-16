@@ -79,6 +79,7 @@ export const permissions: GadgetPermissions = {
           read: true,
         },
         user: {
+          read: true,
           actions: {
             resetPassword: true,
             sendResetPassword: true,
