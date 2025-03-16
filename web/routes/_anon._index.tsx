@@ -16,7 +16,7 @@ export default function () {
         </CardHeader>
         <CardContent className="space-y-6">
           <p className="text-center text-gray-600">
-            Your platform for sharing code snippets and programming knowledge with the community.
+            Your platform for sharing food and discovering delicious meals within your community.
           </p>
           
           <div className="space-y-3 pt-2">
