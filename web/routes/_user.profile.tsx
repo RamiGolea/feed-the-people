@@ -624,65 +624,58 @@ return (
                   : "bg-background hover:bg-slate-100 cursor-pointer"}
                 onClick={() => togglePreference(preference)}
               >
+                <DietaryPreferenceEmoji preference={preference} />
                 {preference}
               </Badge>
             ))}
             
-            <div>
-              <Label className="block mb-2">Dietary Preferences</Label>
-              
-              <div className="flex flex-wrap gap-2 mb-3">
-                {/* Common preferences */}
-                {commonPreferences.map((preference) => (
-                  <Badge
-                    key={preference}
-                    variant="outline"
-                    className={`cursor-pointer hover:bg-secondary transition-colors px-3 py-1 ${
-                      selectedPreferences.some(
-                        (p) => p.toLowerCase() === preference.toLowerCase()
-                      )
-                        ? "bg-green-50 text-green-700 border-green-200"
-                        : ""
-                    }`}
-                    onClick={() => togglePreference(preference)}
-                  >
-                    <DietaryPreferenceEmoji preference={preference} />
-                    {preference}
-                  </Badge>
-                ))}
-                
-                {/* Custom preferences */}
-                {customPreferences.map((preference) => (
-                  <Badge
-                    key={`custom-${preference}`}
-                    variant="outline"
-                    className={`cursor-pointer hover:bg-secondary transition-colors px-3 py-1 flex items-center gap-1 ${
-                      selectedPreferences.some(
-                        (p) => p.toLowerCase() === preference.toLowerCase()
-                      )
-                        ? "bg-green-50 text-green-700 border-green-200"
-                        : "bg-teal-50 text-teal-700 border-teal-200"
-                    }`}
-                    onClick={() => togglePreference(preference)}
-                  >
-                    <DietaryPreferenceEmoji preference={preference} />
-                    {preference}
-                    <span 
-                      className="ml-1 rounded-full bg-gray-200 w-4 h-4 flex items-center justify-center text-xs text-gray-600 hover:bg-gray-300"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removeCustomPreference(preference);
-                      }}
-                    >
-                      ×
-                    </span>
-                  </Badge>
-                ))}
-                
-                <Badge
-                  variant="outline"
-                  className="cursor-pointer hover:bg-secondary transition-colors px-3 py-1"
-                  onClick={() => setShowCustomPreferenceInput(!showCustomPreferenceInput)}
+            {/* Custom preferences */}
+            {customPreferences.map((preference) => (
+              <Badge 
+                key={`custom-${preference}`}
+                variant={selectedPreferences.some(p => 
+                  p.toLowerCase() === preference.toLowerCase()
+                ) ? "default" : "outline"}
+                className={selectedPreferences.some(p => 
+                  p.toLowerCase() === preference.toLowerCase()
+                ) ? "bg-green-100 hover:bg-green-200 text-green-800 cursor-pointer group" 
+                  : "bg-background hover:bg-slate-100 cursor-pointer group"}
+              >
+                <span onClick={() => togglePreference(preference)}>
+                  <DietaryPreferenceEmoji preference={preference} />
+                  {preference}
+                </span>
+                <XCircleIcon 
+                  className="h-3.5 w-3.5 ml-1 opacity-50 group-hover:opacity-100"
+                  onClick={() => removeCustomPreference(preference)} 
+                />
+              </Badge>
+            ))}
+            
+            {showCustomPreferenceInput ? (
+              <div className="flex items-center gap-2">
+                <Input
+                  value={customPreference}
+                  onChange={(e) => setCustomPreference(e.target.value)}
+                  className="h-8"
+                  placeholder="Enter preference"
+                />
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={addCustomPreference}
+                  className="h-8"
+                >
+                  Add
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => {
+                    setCustomPreference("");
+                    setShowCustomPreferenceInput(false);
+                  }}
+                  className="h-8 p-0 w-8"
                 >
                   <XCircleIcon className="h-4 w-4" />
                 </Button>
@@ -715,7 +708,7 @@ return (
     </DialogContent>
   </Dialog>
 );
-}
+};
 
 
 
