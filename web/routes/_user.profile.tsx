@@ -10,7 +10,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Tabs,
@@ -25,7 +24,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Textarea } from "@/components/ui/textarea";
-import { useActionForm, useFindFirst, useUser } from "@gadgetinc/react";
+import { useAction, useActionForm, useUser } from "@gadgetinc/react";
 import { useState, useEffect } from "react";
 import { useOutletContext } from "react-router";
 import { api } from "../api";
@@ -86,32 +85,13 @@ export default function () {
   
   const [isEditing, setIsEditing] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [activeTab, setActiveTab] = useState("overview");
-
-  // Fetch user's share score
-  const [{ data: shareScore, fetching: fetchingShareScore }, refreshShareScore] = useFindFirst(
-    api.shareScore,
-    {
-      filter: { user: { equals: user.id } },
-    }
-  );
-
-  // Refresh data when the refresh trigger changes
-  useEffect(() => {
-    refreshShareScore();
-  }, [refreshTrigger, refreshShareScore]);
 
   const hasName = user.firstName || user.lastName;
   const title = hasName ? `${user.firstName} ${user.lastName}` : user.email;
   const initials = hasName
     ? (user.firstName?.slice(0, 1) ?? "") + (user.lastName?.slice(0, 1) ?? "")
     : "";
-
-  const shareScoreValue = shareScore?.score || 0;
-  // Max value for the progress indicator (using 100 as default)
-  const maxScore = 100;
-  const progressValue = (shareScoreValue / maxScore) * 100;
   
   // Format dates for account information
   const formatDate = (date: string | undefined) => {
@@ -237,53 +217,7 @@ export default function () {
             </CardContent>
           </Card>
 
-          {/* Dashboard section */}
-          <h2 className="text-xl font-semibold mb-4">Dashboard</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            {/* Share Score Card */}
-            <Card className="border-green-100">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg flex items-center">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger className="flex items-center">
-                        Share Score
-                        <InfoIcon className="h-4 w-4 ml-1.5 text-muted-foreground" />
-                      </TooltipTrigger>
-                      <TooltipContent className="max-w-80">
-                        <p>Your share score increases when you share food with others. Higher scores unlock special features and recognition!</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {fetchingShareScore ? (
-                  <div className="space-y-2">
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-6 w-full" />
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Score</span>
-                      <span className="text-sm font-medium">{shareScoreValue}</span>
-                    </div>
-                    <Progress 
-                      value={progressValue} 
-                      className="h-2.5" 
-                      indicatorColor="bg-green-600"
-                    />
-                    {shareScore?.rank && (
-                      <p className="text-sm text-muted-foreground pt-2">
-                        Current rank: <span className="text-green-700 font-medium">{shareScore.rank}</span>
-                      </p>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+
         </TabsContent>
          
 
@@ -337,7 +271,6 @@ export default function () {
       <EditProfileModal 
         open={isEditing} 
         onClose={() => setIsEditing(false)} 
-        onSuccess={() => setRefreshTrigger(prev => prev + 1)} 
       />
       <ChangePasswordModal
         open={isChangingPassword}
@@ -352,7 +285,6 @@ export default function () {
 const EditProfileModal = (props: { 
   open: boolean; 
   onClose: () => void;
-  onSuccess?: () => void;
 }) => {
   const { user } = useOutletContext<AuthOutletContext>();
   const {
@@ -364,11 +296,8 @@ const EditProfileModal = (props: {
   } = useActionForm(api.user.update, {
     defaultValues: user,
     onSuccess: () => {
-      // Close the modal and trigger a data refresh
+      // Close the modal
       props.onClose();
-      if (props.onSuccess) {
-        props.onSuccess();
-      }
     },
     send: ["firstName", "lastName", "allergies", "dietaryPreferences", "bio"],
   });
