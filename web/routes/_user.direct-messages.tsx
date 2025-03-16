@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useFindMany, useFindOne, useAction, useUser } from "@gadgetinc/react";
 import { useSearchParams } from "react-router";
 import { api } from "../api";
@@ -15,20 +15,27 @@ export default function DirectMessages() {
   const userIdParam = searchParams.get("userId");
   const [selectedUserId, setSelectedUserId] = useState<string | null>(userIdParam);
   const [messageInput, setMessageInput] = useState("");
+  const [lastConversationUpdate, setLastConversationUpdate] = useState<Date>(new Date());
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const currentUser = useUser();
 
   // Fetch all messages for the current user to determine conversation partners
-  const [{ data: allUserMessages, fetching: loadingAllMessages, error: allMessagesError }, refreshAllMessages] = useFindMany(api.message, {
-    filter: {
+  const [{ data: allUserMessages, fetching: loadingAllMessages, error: allMessagesError }, refreshAllMessages] = 
+  useFindMany(api.message, {
+    // Only apply filter if we have a currentUser, otherwise pause the query
+    filter: currentUser ? {
+      // Use a single filter condition that will work safely
       OR: [
-        { userId: { equals: currentUser?.id } },
-        { recipient: { equals: currentUser?.id } }
+        { userId: { equals: currentUser.id } },
+        { recipient: { equals: currentUser.id } }
       ]
-    },
+    } : {},
     select: {
       id: true,
       userId: true,
       recipient: true,
+      content: true,
+      createdAt: true,
       user: {
         id: true,
         firstName: true,
@@ -37,7 +44,11 @@ export default function DirectMessages() {
         googleImageUrl: true,
       }
     },
+    sort: { createdAt: "Descending" },
+    first: 100, // Limit to latest 100 messages to improve performance
     live: true, // Enable real-time updates for new conversations
+    // Pause the query if we don't have a currentUser yet
+    pause: !currentUser,
   });
   
   // Extract unique user IDs from messages (conversation partners)
@@ -97,6 +108,7 @@ export default function DirectMessages() {
   const [{ data: messages, fetching: loadingMessages, error: messagesError }, refreshMessages] = useFindMany(
     api.message,
     {
+      /*
       filter: {
         OR: [
           // Messages I've sent to selected user
@@ -114,7 +126,7 @@ export default function DirectMessages() {
             ]
           }
         ]
-      },
+      },*/
       sort: { createdAt: "Ascending" },
       live: true, // Enable real-time updates
       select: {
@@ -144,38 +156,52 @@ export default function DirectMessages() {
       refreshAllMessages(),
       refreshUsers()
     ]);
-  }, [refreshAllMessages, refreshUsers]);
-
-  // Start a new conversation with default message
-  const startConversation = useCallback(async () => {
-    if (!selectedUserId || !currentUser) return;
     
-    try {
-      // Send the initial message
-      await sendMessage({
-        content: "Can I GetAByte?",
-        recipient: selectedUserId,
-        user: {
-          _link: currentUser.id,
-        },
-      });
-      
-      // Add a small delay to ensure the API has time to update
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
-      // Refresh both the messages list and the conversations list
-      await refreshMessages();
-      await refreshUserConversations();
-      
-      // Update the conversation state to reflect that we now have a conversation with this user
-      if (selectedUserId && !conversationUserIds.includes(selectedUserId)) {
-        // Add this user to the list of conversation partners
-        conversationUserIds.push(selectedUserId);
-      }
-    } catch (error) {
-      console.error("Failed to start conversation:", error);
+    // Update the last conversation update timestamp to trigger UI updates
+    setLastConversationUpdate(new Date());
+  }, [refreshAllMessages, refreshUsers]);
+  
+  // Scroll to bottom of messages
+  const scrollToBottom = useCallback(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [selectedUserId, currentUser, sendMessage, refreshMessages, refreshUserConversations, conversationUserIds]);
+  }, []);
+
+  // Monitor messages for changes and update conversation list accordingly
+  useEffect(() => {
+    if (allUserMessages && allUserMessages.length > 0) {
+      // Check if there are any new messages since our last update
+      const latestMessageDate = new Date(allUserMessages[0].createdAt);
+      
+      if (latestMessageDate > lastConversationUpdate) {
+        // We have new messages, update the conversation list and the timestamp
+        refreshUserConversations();
+      }
+    }
+  }, [allUserMessages, lastConversationUpdate, refreshUserConversations]);
+  
+  // Effect to scroll to messages when they load or new messages arrive
+  useEffect(() => {
+    // If we have a selectedUserId and messages, scroll to bottom
+    if (selectedUserId && !loadingMessages && messages?.length) {
+      scrollToBottom();
+    }
+  }, [selectedUserId, loadingMessages, messages, scrollToBottom]);
+  
+  // Effect to handle real-time updates for the current conversation
+  useEffect(() => {
+    // When new messages arrive in the current conversation, refresh the messages list
+    if (messages && messages.length > 0 && selectedUserId) {
+      const lastMessage = messages[messages.length - 1];
+      
+      // Update unread notifications if needed
+      // This keeps the UI in sync when receiving messages
+      if (lastMessage.userId !== currentUser?.id) {
+        scrollToBottom();
+      }
+    }
+  }, [messages, selectedUserId, currentUser, scrollToBottom]);
 
   // Handle sending a new message
   const handleSendMessage = async () => {
@@ -190,7 +216,9 @@ export default function DirectMessages() {
     });
 
     setMessageInput("");
-    refreshMessages();
+    setLastConversationUpdate(new Date());
+    await refreshMessages();
+    setTimeout(scrollToBottom, 100); // Give the UI a moment to update before scrolling
   };
 
   // Users with conversations are already filtered to only include those who've exchanged messages
@@ -229,9 +257,9 @@ export default function DirectMessages() {
               <ScrollArea className="h-[500px]">
                 {loadingUsers || loadingAllMessages ? (
                   <div className="flex justify-center p-4">Loading conversations...</div>
-                ) : (usersError && !isEmptyArrayFilterError(usersError)) || allMessagesError ? (
+                ) : (usersError && !isEmptyArrayFilterError(usersError)) || (allMessagesError && !currentUser) ? (
                   <div className="text-red-500 p-4">
-                    Error loading conversations: {((usersError && !isEmptyArrayFilterError(usersError)) || allMessagesError)?.toString()}
+                    Error loading conversations: {((usersError && !isEmptyArrayFilterError(usersError)) || (allMessagesError && !currentUser))?.toString()}
                   </div>
                 ) : otherUsers.length === 0 || conversationUserIds.length === 0 ? (
                   <div className="text-center p-4 text-muted-foreground">
@@ -367,6 +395,7 @@ export default function DirectMessages() {
                             </div>
                           );
                         })}
+                        <div ref={messagesEndRef} />
                       </div>
                     )}
                   </ScrollArea>
